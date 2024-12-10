@@ -20,7 +20,7 @@ type Payload struct {
 	jwt.RegisteredClaims
 }
 
-// NewPayload creates a new token payload with specific username and duration
+// NewPayload creates a new token payload with specific userId and duration
 func NewPayload(userId int64, duration time.Duration) (*Payload, error) {
 	tokenID, err := uuid.NewRandom()
 	if err != nil {

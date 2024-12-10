@@ -1,9 +1,16 @@
 package config
 
 import (
-	"os"
+	"log"
+	"sync"
+	"time"
 
-	"github.com/naoina/toml"
+	"github.com/BurntSushi/toml"
+)
+
+var (
+	configInit     sync.Once
+	configInstance *Config
 )
 
 type Config struct {
@@ -14,16 +21,21 @@ type Config struct {
 		DatabaseDriver string
 		DatabaseSource string
 	}
+	Token struct {
+		TokenSymmertricKey  string
+		AccessTokenDuration time.Duration
+	}
 }
 
-func NewConfig(filePath string) *Config {
-	c := new(Config)
+func LoadConfig(filePath string) {
+	configInit.Do(func() {
+		configInstance = new(Config)
+		if _, err := toml.DecodeFile(filePath, &configInstance); err != nil {
+			log.Panic(err)
+		}
+	})
+}
 
-	if file, err := os.Open(filePath); err != nil {
-		panic(err)
-	} else if err = toml.NewDecoder(file).Decode(c); err != nil {
-		panic(err)
-	} else {
-		return c
-	}
+func GetInstance() *Config {
+	return configInstance
 }

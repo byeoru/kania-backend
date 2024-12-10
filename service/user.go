@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/byeoru/kania/config"
 	db "github.com/byeoru/kania/db/repository"
+	"github.com/byeoru/kania/token"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -36,6 +38,20 @@ func (s *UserService) HashPassword(password string) (string, error) {
 	return string(hashedPassword), nil
 }
 
-func (s *UserService) CreateUser(ctx *gin.Context, newUser *db.CreateUserParams) error {
+func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams) error {
 	return s.store.CreateUser(ctx, *newUser)
+}
+
+func (s *UserService) Login(ctx *gin.Context, email string) (db.User, error) {
+	return s.store.FindUser(ctx, email)
+}
+
+// CheckPassword checks if the provided password is correct or not
+func (s *UserService) CheckPassword(password string, hashedPassword string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
+
+func (s *UserService) CreateToken(userId int64) (string, error) {
+	tokenMaker := token.GetTokenMakerInstance()
+	return tokenMaker.CreateToken(userId, config.GetInstance().Token.AccessTokenDuration)
 }

@@ -11,7 +11,8 @@ import (
 
 type Realm struct {
 	ID        int64         `json:"id"`
-	Owner     int64         `json:"owner"`
+	Name      string        `json:"name"`
+	OwnerID   int64         `json:"owner_id"`
 	Capital   sql.NullInt64 `json:"capital"`
 	CreatedAt time.Time     `json:"created_at"`
 }
@@ -19,7 +20,7 @@ type Realm struct {
 type Sector struct {
 	CellID    int32     `json:"cell_id"`
 	Province  int32     `json:"province"`
-	Realm     int64     `json:"realm"`
+	RealmID   int64     `json:"realm_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

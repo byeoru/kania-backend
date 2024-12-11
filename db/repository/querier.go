@@ -10,6 +10,7 @@ import (
 
 type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	FindAllRealms(ctx context.Context, ownerID int64) ([]Realm, error)
 	FindUser(ctx context.Context, email string) (User, error)
 }
 

@@ -8,7 +8,8 @@ CREATE TABLE "users" (
 
 CREATE TABLE "realms" (
   "id" bigserial PRIMARY KEY,
-  "owner" bigint NOT NULL,
+  "name" varchar NOT NULL,
+  "owner_id" bigint NOT NULL,
   "capital" bigint UNIQUE,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -16,17 +17,19 @@ CREATE TABLE "realms" (
 CREATE TABLE "sectors" (
   "cell_id" int PRIMARY KEY,
   "province" int NOT NULL,
-  "realm" bigint NOT NULL,
+  "realm_id" bigint NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE INDEX ON "users" ("email");
 
-ALTER TABLE "realms" ADD FOREIGN KEY ("owner") REFERENCES "users" ("id");
+CREATE INDEX ON "realms" ("owner_id");
+
+ALTER TABLE "realms" ADD FOREIGN KEY ("owner_id") REFERENCES "users" ("id");
 
 ALTER TABLE "realms" ADD FOREIGN KEY ("capital") REFERENCES "sectors" ("cell_id");
 
-ALTER TABLE "sectors" ADD FOREIGN KEY ("realm") REFERENCES "realms" ("id");
+ALTER TABLE "sectors" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("id");
 
 ALTER TABLE "users" ADD CONSTRAINT "email_key" UNIQUE ("email");
 

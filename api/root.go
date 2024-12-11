@@ -18,6 +18,7 @@ func NewApi(service *service.Service) *Api {
 
 	// router
 	newUserRouter(r)
+	NewRealmRouter(r)
 	return r
 }
 

@@ -31,7 +31,7 @@ func newUserRouter(router *Api) {
 	})
 }
 
-func (u *userRouter) signup(ctx *gin.Context) {
+func (r *userRouter) signup(ctx *gin.Context) {
 	var req types.SignupUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, &types.SignupUserResponse{
@@ -40,7 +40,7 @@ func (u *userRouter) signup(ctx *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := u.userService.HashPassword(req.Password)
+	hashedPassword, err := r.userService.HashPassword(req.Password)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, err)
 		return
@@ -52,7 +52,7 @@ func (u *userRouter) signup(ctx *gin.Context) {
 		Nickname:       req.Nickname,
 	}
 
-	if err := u.userService.Signup(ctx, &arg); err != nil {
+	if err := r.userService.Signup(ctx, &arg); err != nil {
 		pqErr, ok := err.(*pq.Error)
 		if !ok {
 			ctx.JSON(http.StatusInternalServerError, &types.SignupUserResponse{
@@ -81,7 +81,7 @@ func (u *userRouter) signup(ctx *gin.Context) {
 	})
 }
 
-func (u *userRouter) login(ctx *gin.Context) {
+func (r *userRouter) login(ctx *gin.Context) {
 	var req types.LoginUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, &types.LoginUserResponse{
@@ -90,7 +90,7 @@ func (u *userRouter) login(ctx *gin.Context) {
 		return
 	}
 
-	user, err := u.userService.Login(ctx, req.Email)
+	user, err := r.userService.Login(ctx, req.Email)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusUnauthorized, &types.LoginUserResponse{
@@ -104,7 +104,7 @@ func (u *userRouter) login(ctx *gin.Context) {
 		return
 	}
 
-	err = u.userService.CheckPassword(req.Password, user.HashedPassword)
+	err = r.userService.CheckPassword(req.Password, user.HashedPassword)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, &types.LoginUserResponse{
 			APIResponse: types.NewAPIResponse(false, "존재하지 않는 계정입니다.", sql.ErrNoRows.Error()),
@@ -112,7 +112,7 @@ func (u *userRouter) login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := u.userService.CreateToken(user.ID)
+	token, err := r.userService.CreateToken(user.ID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.LoginUserResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),

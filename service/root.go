@@ -12,13 +12,15 @@ var (
 )
 
 type Service struct {
-	UserService *UserService
+	UserService  *UserService
+	RealmService *RealmService
 }
 
 func NewService(store db.Store) *Service {
 	serviceInit.Do(func() {
 		serviceInstance = &Service{
-			UserService: newUserService(store),
+			UserService:  newUserService(store),
+			RealmService: newRealmService(store),
 		}
 	})
 	return serviceInstance

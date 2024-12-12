@@ -28,3 +28,19 @@ func newRealmService(store db.Store) *RealmService {
 func (s *RealmService) FindAllMyRealms(ctx *gin.Context, userId int64) ([]db.Realm, error) {
 	return s.store.FindAllRealms(ctx, userId)
 }
+
+func (s *RealmService) RegisterRealmWithSector(ctx *gin.Context, realm *db.CreateRealmParams, sector *db.CreateSectorParams) error {
+	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
+		realmId, err := q.CreateRealm(ctx, *realm)
+		if err != nil {
+			return err
+		}
+		sector.RealmID = realmId
+		err = q.CreateSector(ctx, *sector)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
+}

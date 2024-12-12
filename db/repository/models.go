@@ -5,23 +5,23 @@
 package db
 
 import (
-	"database/sql"
 	"time"
 )
 
 type Realm struct {
-	ID        int64         `json:"id"`
-	Name      string        `json:"name"`
-	OwnerID   int64         `json:"owner_id"`
-	Capital   sql.NullInt64 `json:"capital"`
-	CreatedAt time.Time     `json:"created_at"`
+	ID              int64     `json:"id"`
+	Name            string    `json:"name"`
+	OwnerID         int64     `json:"owner_id"`
+	CapitalNumber   int32     `json:"capital_number"`
+	PoliticalEntity string    `json:"political_entity"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type Sector struct {
-	CellID    int32     `json:"cell_id"`
-	Province  int32     `json:"province"`
-	RealmID   int64     `json:"realm_id"`
-	CreatedAt time.Time `json:"created_at"`
+	CellNumber     int32     `json:"cell_number"`
+	ProvinceNumber int32     `json:"province_number"`
+	RealmID        int64     `json:"realm_id"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type User struct {

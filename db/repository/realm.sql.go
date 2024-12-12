@@ -9,8 +9,38 @@ import (
 	"context"
 )
 
+const createRealm = `-- name: CreateRealm :one
+INSERT INTO realms (
+    name,
+    owner_id,
+    capital_number,
+    political_entity
+) VALUES (
+    $1, $2, $3, $4
+) RETURNING id
+`
+
+type CreateRealmParams struct {
+	Name            string `json:"name"`
+	OwnerID         int64  `json:"owner_id"`
+	CapitalNumber   int32  `json:"capital_number"`
+	PoliticalEntity string `json:"political_entity"`
+}
+
+func (q *Queries) CreateRealm(ctx context.Context, arg CreateRealmParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createRealm,
+		arg.Name,
+		arg.OwnerID,
+		arg.CapitalNumber,
+		arg.PoliticalEntity,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const findAllRealms = `-- name: FindAllRealms :many
-SELECT id, name, owner_id, capital, created_at FROM realms
+SELECT id, name, owner_id, capital_number, political_entity, created_at FROM realms
 WHERE owner_id = $1
 `
 
@@ -27,7 +57,8 @@ func (q *Queries) FindAllRealms(ctx context.Context, ownerID int64) ([]Realm, er
 			&i.ID,
 			&i.Name,
 			&i.OwnerID,
-			&i.Capital,
+			&i.CapitalNumber,
+			&i.PoliticalEntity,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

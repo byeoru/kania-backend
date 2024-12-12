@@ -9,6 +9,8 @@ import (
 )
 
 type Querier interface {
+	CreateRealm(ctx context.Context, arg CreateRealmParams) (int64, error)
+	CreateSector(ctx context.Context, arg CreateSectorParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	FindAllRealms(ctx context.Context, ownerID int64) ([]Realm, error)
 	FindUser(ctx context.Context, email string) (User, error)

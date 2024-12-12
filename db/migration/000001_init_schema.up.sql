@@ -10,13 +10,14 @@ CREATE TABLE "realms" (
   "id" bigserial PRIMARY KEY,
   "name" varchar NOT NULL,
   "owner_id" bigint NOT NULL,
-  "capital" bigint UNIQUE,
+  "capital_number" int UNIQUE NOT NULL,
+  "political_entity" varchar NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE "sectors" (
-  "cell_id" int PRIMARY KEY,
-  "province" int NOT NULL,
+  "cell_number" int PRIMARY KEY,
+  "province_number" int NOT NULL,
   "realm_id" bigint NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -26,8 +27,6 @@ CREATE INDEX ON "users" ("email");
 CREATE INDEX ON "realms" ("owner_id");
 
 ALTER TABLE "realms" ADD FOREIGN KEY ("owner_id") REFERENCES "users" ("id");
-
-ALTER TABLE "realms" ADD FOREIGN KEY ("capital") REFERENCES "sectors" ("cell_id");
 
 ALTER TABLE "sectors" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("id");
 

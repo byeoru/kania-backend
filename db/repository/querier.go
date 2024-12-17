@@ -10,9 +10,10 @@ import (
 
 type Querier interface {
 	CreateRealm(ctx context.Context, arg CreateRealmParams) (int64, error)
+	CreateRealmSectorsJsonb(ctx context.Context, arg CreateRealmSectorsJsonbParams) error
 	CreateSector(ctx context.Context, arg CreateSectorParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
-	FindAllRealms(ctx context.Context, ownerID int64) ([]Realm, error)
+	FindRealmWithJson(ctx context.Context, ownerID int64) (FindRealmWithJsonRow, error)
 	FindUser(ctx context.Context, email string) (User, error)
 }
 

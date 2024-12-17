@@ -2,6 +2,7 @@ package types
 
 import (
 	db "github.com/byeoru/kania/db/repository"
+	"github.com/sqlc-dev/pqtype"
 )
 
 var PoliticalEntitySet = map[string]struct{}{
@@ -14,37 +15,33 @@ var PoliticalEntitySet = map[string]struct{}{
 }
 
 type RealmsResponse struct {
-	ID              int64  `json:"id"`
-	Name            string `json:"name"`
-	OwnerID         int64  `json:"owner_id"`
-	CapitalNumber   int32  `json:"capital_number"`
-	PoliticalEntity string `json:"political_entity"`
+	ID              int64                 `json:"id"`
+	Name            string                `json:"name"`
+	OwnerID         int64                 `json:"owner_id"`
+	CapitalNumber   int32                 `json:"capital_number"`
+	PoliticalEntity string                `json:"political_entity"`
+	RealmCellsJson  pqtype.NullRawMessage `json:"realm_cells_json"`
 }
 
 type GetMyRealmsResponse struct {
 	APIResponse *apiResponse `json:"api_response"`
-	Realms      []*RealmsResponse
+	Realms      *RealmsResponse
 }
 
-func ToRealmsResponse(realms []db.Realm) []*RealmsResponse {
-	rsRealms := []*RealmsResponse{}
-	for _, r := range realms {
-		realm := &RealmsResponse{
-			ID:              r.ID,
-			Name:            r.Name,
-			OwnerID:         r.OwnerID,
-			CapitalNumber:   r.CapitalNumber,
-			PoliticalEntity: r.PoliticalEntity,
-		}
-		rsRealms = append(rsRealms, realm)
+func ToRealmsResponse(realm db.FindRealmWithJsonRow) *RealmsResponse {
+	rsRealms := RealmsResponse{
+		ID:              realm.ID,
+		Name:            realm.Name,
+		OwnerID:         realm.OwnerID,
+		CapitalNumber:   realm.CapitalNumber,
+		PoliticalEntity: realm.PoliticalEntity,
+		RealmCellsJson:  realm.CellsJsonb,
 	}
-	return rsRealms
+	return &rsRealms
 }
 
 type EstablishARealmRequest struct {
 	Name            string `json:"name" binding:"required,min=1,max=10"`
-	OwnerID         int64  `json:"owner_id" binding:"required"`
-	CapitalNumber   int32  `json:"capital_number" binding:"required"`
 	PoliticalEntity string `json:"political_entity" binding:"required,politicalEntity"`
 	CellNumber      int32  `json:"cell_number" binding:"required"`
 	ProvinceNumber  int32  `json:"province_number" binding:"required"`

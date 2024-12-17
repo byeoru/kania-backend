@@ -5,6 +5,7 @@
 package db
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -14,7 +15,13 @@ type Realm struct {
 	OwnerID         int64     `json:"owner_id"`
 	CapitalNumber   int32     `json:"capital_number"`
 	PoliticalEntity string    `json:"political_entity"`
+	Color           string    `json:"color"`
 	CreatedAt       time.Time `json:"created_at"`
+}
+
+type RealmSectorsJsonb struct {
+	RealmID    int64           `json:"realm_id"`
+	CellsJsonb json.RawMessage `json:"cells_jsonb"`
 }
 
 type Sector struct {

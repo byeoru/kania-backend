@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 	"sync"
 
@@ -27,15 +28,19 @@ func NewRealmRouter(router *Api) {
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
-	authRoutes.GET("/realms", realmRouterInstance.getMyRealms)
+	authRoutes.GET("/realms", realmRouterInstance.getMyRealm)
 	authRoutes.POST("/realms", realmRouterInstance.establishARealm)
 }
 
-func (r *realmRouter) getMyRealms(ctx *gin.Context) {
+func (r *realmRouter) getMyRealm(ctx *gin.Context) {
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
-	realms, err := r.realmService.FindAllMyRealms(ctx, authPayload.UserId)
+	realm, err := r.realmService.FindMyRealms(ctx, authPayload.UserId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNoContent, gin.H{})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, &types.GetMyRealmsResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
 		})
@@ -44,7 +49,7 @@ func (r *realmRouter) getMyRealms(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, &types.GetMyRealmsResponse{
 		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
-		Realms:      types.ToRealmsResponse(realms),
+		Realms:      types.ToRealmsResponse(realm),
 	})
 }
 
@@ -62,7 +67,7 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 	realmArg := db.CreateRealmParams{
 		Name:            req.Name,
 		OwnerID:         authPayload.UserId,
-		CapitalNumber:   req.CapitalNumber,
+		CapitalNumber:   req.CellNumber,
 		PoliticalEntity: req.PoliticalEntity,
 	}
 	sectorArg := db.CreateSectorParams{
@@ -70,7 +75,7 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 		ProvinceNumber: req.ProvinceNumber,
 	}
 
-	err := r.realmService.RegisterRealmWithSector(ctx, &realmArg, &sectorArg)
+	err := r.realmService.RegisterRealm(ctx, &realmArg, &sectorArg)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.EstablishARealmResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),

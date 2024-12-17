@@ -7,6 +7,10 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"time"
+
+	"github.com/sqlc-dev/pqtype"
 )
 
 const createRealm = `-- name: CreateRealm :one
@@ -14,9 +18,10 @@ INSERT INTO realms (
     name,
     owner_id,
     capital_number,
-    political_entity
+    political_entity,
+    color
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 ) RETURNING id
 `
 
@@ -25,6 +30,7 @@ type CreateRealmParams struct {
 	OwnerID         int64  `json:"owner_id"`
 	CapitalNumber   int32  `json:"capital_number"`
 	PoliticalEntity string `json:"political_entity"`
+	Color           string `json:"color"`
 }
 
 func (q *Queries) CreateRealm(ctx context.Context, arg CreateRealmParams) (int64, error) {
@@ -33,43 +39,45 @@ func (q *Queries) CreateRealm(ctx context.Context, arg CreateRealmParams) (int64
 		arg.OwnerID,
 		arg.CapitalNumber,
 		arg.PoliticalEntity,
+		arg.Color,
 	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
 }
 
-const findAllRealms = `-- name: FindAllRealms :many
-SELECT id, name, owner_id, capital_number, political_entity, created_at FROM realms
-WHERE owner_id = $1
+const findRealmWithJson = `-- name: FindRealmWithJson :one
+SELECT id, name, owner_id, capital_number, political_entity, color, created_at, realm_id, cells_jsonb FROM realms AS R
+LEFT JOIN realm_sectors_jsonb AS J 
+ON R.id = J.realm_id 
+WHERE R.owner_id = $1 LIMIT 1
 `
 
-func (q *Queries) FindAllRealms(ctx context.Context, ownerID int64) ([]Realm, error) {
-	rows, err := q.db.QueryContext(ctx, findAllRealms, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Realm{}
-	for rows.Next() {
-		var i Realm
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.OwnerID,
-			&i.CapitalNumber,
-			&i.PoliticalEntity,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type FindRealmWithJsonRow struct {
+	ID              int64                 `json:"id"`
+	Name            string                `json:"name"`
+	OwnerID         int64                 `json:"owner_id"`
+	CapitalNumber   int32                 `json:"capital_number"`
+	PoliticalEntity string                `json:"political_entity"`
+	Color           string                `json:"color"`
+	CreatedAt       time.Time             `json:"created_at"`
+	RealmID         sql.NullInt64         `json:"realm_id"`
+	CellsJsonb      pqtype.NullRawMessage `json:"cells_jsonb"`
+}
+
+func (q *Queries) FindRealmWithJson(ctx context.Context, ownerID int64) (FindRealmWithJsonRow, error) {
+	row := q.db.QueryRowContext(ctx, findRealmWithJson, ownerID)
+	var i FindRealmWithJsonRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerID,
+		&i.CapitalNumber,
+		&i.PoliticalEntity,
+		&i.Color,
+		&i.CreatedAt,
+		&i.RealmID,
+		&i.CellsJsonb,
+	)
+	return i, err
 }

@@ -2,10 +2,10 @@ package api
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/types"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -22,12 +22,6 @@ func NewApi(service *service.Service) *Api {
 		service: service,
 	}
 
-	// cors
-	r.engine.Use(cors.New(
-		cors.Config{
-			AllowOrigins: []string{"http://localhost:5173"},
-		}))
-
 	// politicalEntity validator
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterValidation("politicalEntity", types.ValidPoliticalEntity)
@@ -38,6 +32,19 @@ func NewApi(service *service.Service) *Api {
 	// router
 	newUserRouter(r)
 	NewRealmRouter(r)
+
+	r.engine.LoadHTMLFiles("static/index.html")
+	r.engine.Static("/assets", "static/assets")
+	r.engine.Static("/public/assets", "static/assets")
+
+	r.engine.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", gin.H{})
+	})
+
+	r.engine.GET("/world", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", gin.H{})
+	})
+
 	return r
 }
 

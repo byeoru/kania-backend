@@ -28,8 +28,8 @@ func NewRealmRouter(router *Api) {
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
-	authRoutes.GET("/realms", realmRouterInstance.getMyRealm)
-	authRoutes.POST("/realms", realmRouterInstance.establishARealm)
+	authRoutes.GET("/api/realms", realmRouterInstance.getMyRealm)
+	authRoutes.POST("/api/realms", realmRouterInstance.establishARealm)
 }
 
 func (r *realmRouter) getMyRealm(ctx *gin.Context) {

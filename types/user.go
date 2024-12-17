@@ -17,5 +17,4 @@ type LoginUserRequest struct {
 
 type LoginUserResponse struct {
 	APIResponse *apiResponse `json:"api_response"`
-	AccessToken string       `json:"access_token"`
 }

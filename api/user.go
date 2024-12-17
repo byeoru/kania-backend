@@ -27,8 +27,8 @@ func newUserRouter(router *Api) {
 		userRouterInstance = &userRouter{
 			userService: router.service.UserService,
 		}
-		router.engine.POST("/signup", userRouterInstance.signup)
-		router.engine.POST("/login", userRouterInstance.login)
+		router.engine.POST("/api/signup", userRouterInstance.signup)
+		router.engine.POST("/api/login", userRouterInstance.login)
 	})
 }
 
@@ -121,6 +121,9 @@ func (r *userRouter) login(ctx *gin.Context) {
 		return
 	}
 
+	// Set the SameSite mode to Strict.
+	ctx.SetSameSite(http.SameSiteStrictMode)
+
 	// 쿠키 설정
 	ctx.SetCookie(
 		config.GetInstance().Cookie.AccessCookieName, // 쿠키 이름
@@ -134,6 +137,5 @@ func (r *userRouter) login(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, &types.LoginUserResponse{
 		APIResponse: types.NewAPIResponse(true, "로그인이 완료되었습니다.", nil),
-		AccessToken: token,
 	})
 }

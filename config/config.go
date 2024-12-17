@@ -25,6 +25,10 @@ type Config struct {
 		TokenSymmertricKey  string
 		AccessTokenDuration time.Duration
 	}
+	Cookie struct {
+		CookieDuration   int
+		AccessCookieName string
+	}
 }
 
 func LoadConfig(filePath string) {

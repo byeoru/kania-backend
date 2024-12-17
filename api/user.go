@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/byeoru/kania/config"
 	db "github.com/byeoru/kania/db/repository"
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/types"
@@ -119,6 +120,17 @@ func (r *userRouter) login(ctx *gin.Context) {
 		})
 		return
 	}
+
+	// 쿠키 설정
+	ctx.SetCookie(
+		config.GetInstance().Cookie.AccessCookieName, // 쿠키 이름
+		token, // 쿠키 값
+		config.GetInstance().Cookie.CookieDuration, // 쿠키 만료 시간 (초 단위) - 1시간
+		"/",         // 쿠키 유효 경로
+		"localhost", // 쿠키 도메인 (테스트 시 localhost)
+		false,       // Secure: HTTPS에서만 전송 (테스트 시 false)
+		true,        // HttpOnly: JavaScript 접근 차단
+	)
 
 	ctx.JSON(http.StatusOK, &types.LoginUserResponse{
 		APIResponse: types.NewAPIResponse(true, "로그인이 완료되었습니다.", nil),

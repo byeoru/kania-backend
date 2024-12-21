@@ -17,17 +17,19 @@ const createRealm = `-- name: CreateRealm :one
 INSERT INTO realms (
     name,
     owner_id,
+    owner_nickname,
     capital_number,
     political_entity,
     color
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6
 ) RETURNING id
 `
 
 type CreateRealmParams struct {
 	Name            string `json:"name"`
 	OwnerID         int64  `json:"owner_id"`
+	OwnerNickname   string `json:"owner_nickname"`
 	CapitalNumber   int32  `json:"capital_number"`
 	PoliticalEntity string `json:"political_entity"`
 	Color           string `json:"color"`
@@ -37,6 +39,7 @@ func (q *Queries) CreateRealm(ctx context.Context, arg CreateRealmParams) (int64
 	row := q.db.QueryRowContext(ctx, createRealm,
 		arg.Name,
 		arg.OwnerID,
+		arg.OwnerNickname,
 		arg.CapitalNumber,
 		arg.PoliticalEntity,
 		arg.Color,
@@ -46,8 +49,62 @@ func (q *Queries) CreateRealm(ctx context.Context, arg CreateRealmParams) (int64
 	return id, err
 }
 
+const findAllRealmsWithJsonExcludeMe = `-- name: FindAllRealmsWithJsonExcludeMe :many
+SELECT id, name, owner_nickname, owner_id, capital_number, political_entity, color, created_at, realm_id, cells_jsonb FROM realms AS R
+LEFT JOIN realm_sectors_jsonb AS J 
+ON R.id = J.realm_id
+WHERE R.owner_id != $1
+`
+
+type FindAllRealmsWithJsonExcludeMeRow struct {
+	ID              int64                 `json:"id"`
+	Name            string                `json:"name"`
+	OwnerNickname   string                `json:"owner_nickname"`
+	OwnerID         int64                 `json:"owner_id"`
+	CapitalNumber   int32                 `json:"capital_number"`
+	PoliticalEntity string                `json:"political_entity"`
+	Color           string                `json:"color"`
+	CreatedAt       time.Time             `json:"created_at"`
+	RealmID         sql.NullInt64         `json:"realm_id"`
+	CellsJsonb      pqtype.NullRawMessage `json:"cells_jsonb"`
+}
+
+func (q *Queries) FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID int64) ([]FindAllRealmsWithJsonExcludeMeRow, error) {
+	rows, err := q.db.QueryContext(ctx, findAllRealmsWithJsonExcludeMe, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindAllRealmsWithJsonExcludeMeRow{}
+	for rows.Next() {
+		var i FindAllRealmsWithJsonExcludeMeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.OwnerNickname,
+			&i.OwnerID,
+			&i.CapitalNumber,
+			&i.PoliticalEntity,
+			&i.Color,
+			&i.CreatedAt,
+			&i.RealmID,
+			&i.CellsJsonb,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const findRealmWithJson = `-- name: FindRealmWithJson :one
-SELECT id, name, owner_id, capital_number, political_entity, color, created_at, realm_id, cells_jsonb FROM realms AS R
+SELECT id, name, owner_nickname, owner_id, capital_number, political_entity, color, created_at, realm_id, cells_jsonb FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
 ON R.id = J.realm_id 
 WHERE R.owner_id = $1 LIMIT 1
@@ -56,6 +113,7 @@ WHERE R.owner_id = $1 LIMIT 1
 type FindRealmWithJsonRow struct {
 	ID              int64                 `json:"id"`
 	Name            string                `json:"name"`
+	OwnerNickname   string                `json:"owner_nickname"`
 	OwnerID         int64                 `json:"owner_id"`
 	CapitalNumber   int32                 `json:"capital_number"`
 	PoliticalEntity string                `json:"political_entity"`
@@ -71,6 +129,7 @@ func (q *Queries) FindRealmWithJson(ctx context.Context, ownerID int64) (FindRea
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.OwnerNickname,
 		&i.OwnerID,
 		&i.CapitalNumber,
 		&i.PoliticalEntity,

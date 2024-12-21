@@ -9,6 +9,7 @@ CREATE TABLE "users" (
 CREATE TABLE "realms" (
   "id" bigserial PRIMARY KEY,
   "name" varchar NOT NULL,
+  "owner_nickname" varchar NOT NULL,
   "owner_id" bigint UNIQUE NOT NULL,
   "capital_number" int UNIQUE NOT NULL,
   "political_entity" varchar NOT NULL,
@@ -24,7 +25,7 @@ CREATE TABLE "sectors" (
 );
 
 CREATE TABLE "realm_sectors_jsonb" (
-  "realm_id" bigint NOT NULL,
+  "realm_id" bigint UNIQUE NOT NULL,
   "cells_jsonb" JSONB NOT NULL
 );
 

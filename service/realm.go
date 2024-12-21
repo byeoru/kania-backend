@@ -26,20 +26,27 @@ func newRealmService(store db.Store) *RealmService {
 	return realmServiceInstance
 }
 
-func (s *RealmService) FindMyRealms(ctx *gin.Context, userId int64) (db.FindRealmWithJsonRow, error) {
+func (s *RealmService) FindMyRealm(ctx *gin.Context, userId int64) (db.FindRealmWithJsonRow, error) {
 	return s.store.FindRealmWithJson(ctx, userId)
+}
+
+func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, userId int64) ([]db.FindAllRealmsWithJsonExcludeMeRow, error) {
+	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, userId)
 }
 
 func (s *RealmService) RegisterRealm(
 	ctx *gin.Context,
 	realm *db.CreateRealmParams,
 	sector *db.CreateSectorParams,
-) error {
+) (int64, error) {
+	var id int64
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
+		realm.Color = realm.Color[1:]
 		realmId, err := q.CreateRealm(ctx, *realm)
 		if err != nil {
 			return err
 		}
+
 		sector.RealmID = realmId
 		err = q.CreateSector(ctx, *sector)
 		if err != nil {
@@ -59,7 +66,8 @@ func (s *RealmService) RegisterRealm(
 		if err != nil {
 			return err
 		}
+		id = realmId
 		return nil
 	})
-	return err
+	return id, err
 }

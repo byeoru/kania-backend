@@ -12,6 +12,7 @@ import (
 type Realm struct {
 	ID              int64     `json:"id"`
 	Name            string    `json:"name"`
+	OwnerNickname   string    `json:"owner_nickname"`
 	OwnerID         int64     `json:"owner_id"`
 	CapitalNumber   int32     `json:"capital_number"`
 	PoliticalEntity string    `json:"political_entity"`

@@ -13,8 +13,10 @@ type Querier interface {
 	CreateRealmSectorsJsonb(ctx context.Context, arg CreateRealmSectorsJsonbParams) error
 	CreateSector(ctx context.Context, arg CreateSectorParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
+	FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID int64) ([]FindAllRealmsWithJsonExcludeMeRow, error)
 	FindRealmWithJson(ctx context.Context, ownerID int64) (FindRealmWithJsonRow, error)
-	FindUser(ctx context.Context, email string) (User, error)
+	FindUserByEmail(ctx context.Context, email string) (User, error)
+	FindUserById(ctx context.Context, id int64) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -23,10 +23,16 @@ func NewApi(service *service.Service) *Api {
 	}
 
 	// politicalEntity validator
+	// if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+	// 	v.RegisterValidation("politicalEntity", types.ValidPoliticalEntity)
+	// } else {
+	// 	log.Fatal("politicalEntity validator setting error")
+	// }
+
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("politicalEntity", types.ValidPoliticalEntity)
+		v.RegisterValidation("hexColor", types.ValidColor)
 	} else {
-		log.Fatal("validator setting error")
+		log.Fatal("hexColor validator setting error")
 	}
 
 	// router

@@ -29,6 +29,10 @@ func newUserService(store db.Store) *UserService {
 	return userServiceInstance
 }
 
+func (s *UserService) FindUser(ctx *gin.Context, id int64) (db.User, error) {
+	return s.store.FindUserById(ctx, id)
+}
+
 // HashPassword returns the bcrypt hash of the password
 func (s *UserService) HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -43,7 +47,7 @@ func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams) err
 }
 
 func (s *UserService) Login(ctx *gin.Context, email string) (db.User, error) {
-	return s.store.FindUser(ctx, email)
+	return s.store.FindUserByEmail(ctx, email)
 }
 
 // CheckPassword checks if the provided password is correct or not

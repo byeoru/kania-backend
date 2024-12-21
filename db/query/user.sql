@@ -7,6 +7,10 @@ INSERT INTO users (
     $1, $2, $3
 );
 
--- name: FindUser :one
+-- name: FindUserByEmail :one
 SELECT * FROM users
 WHERE email = $1 LIMIT 1;
+
+-- name: FindUserById :one
+SELECT * FROM users
+WHERE id = $1 LIMIT 1;

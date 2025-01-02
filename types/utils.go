@@ -3,6 +3,7 @@ package types
 import (
 	"strconv"
 
+	"github.com/byeoru/kania/util"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -28,7 +29,7 @@ var ValidPoliticalEntity validator.Func = func(fl validator.FieldLevel) bool {
 }
 
 func isValidPoliticalEntity(politicalEntity string) bool {
-	_, isExist := PoliticalEntitySet[politicalEntity]
+	_, isExist := util.PoliticalEntitySet[politicalEntity]
 	return isExist
 }
 

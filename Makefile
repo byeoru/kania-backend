@@ -25,4 +25,7 @@ migratedown1:
 sqlc:
 	sqlc generate
 
-.PHONY: server postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc
+test:
+	make dropdb && make createdb && make migrateup && make sqlc && make server
+
+.PHONY: server postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test

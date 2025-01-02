@@ -9,14 +9,26 @@ import (
 )
 
 type Querier interface {
-	CreateRealm(ctx context.Context, arg CreateRealmParams) (int64, error)
-	CreateRealmSectorsJsonb(ctx context.Context, arg CreateRealmSectorsJsonbParams) error
-	CreateSector(ctx context.Context, arg CreateSectorParams) error
-	CreateUser(ctx context.Context, arg CreateUserParams) error
-	FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID int64) ([]FindAllRealmsWithJsonExcludeMeRow, error)
-	FindRealmWithJson(ctx context.Context, ownerID int64) (FindRealmWithJsonRow, error)
-	FindUserByEmail(ctx context.Context, email string) (User, error)
-	FindUserById(ctx context.Context, id int64) (User, error)
+	CheckCellOwner(ctx context.Context, arg *CheckCellOwnerParams) (bool, error)
+	CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error)
+	CreateRealm(ctx context.Context, arg *CreateRealmParams) (*Realm, error)
+	CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error
+	CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmSectorsJsonbParams) error
+	CreateSector(ctx context.Context, arg *CreateSectorParams) error
+	CreateUser(ctx context.Context, arg *CreateUserParams) error
+	FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
+	FindRealmWithJson(ctx context.Context, ownerID int64) (*FindRealmWithJsonRow, error)
+	FindUserByEmail(ctx context.Context, email string) (*User, error)
+	FindUserById(ctx context.Context, userID int64) (*User, error)
+	GetCensusAndPopulationGrowthRate(ctx context.Context, realmID int64) (*GetCensusAndPopulationGrowthRateRow, error)
+	GetPopulation(ctx context.Context, cellNumber int32) (*GetPopulationRow, error)
+	GetRealmId(ctx context.Context, ownerID int64) (int64, error)
+	GetRealmIdByUserId(ctx context.Context, userID int64) (int64, error)
+	GetRealmIdWithSector(ctx context.Context, arg *GetRealmIdWithSectorParams) (*GetRealmIdWithSectorRow, error)
+	GetRealmMembersLevies(ctx context.Context, realmID int64) ([]*GetRealmMembersLeviesRow, error)
+	UpdateCensusAt(ctx context.Context, arg *UpdateCensusAtParams) error
+	UpdatePopulation(ctx context.Context, arg *UpdatePopulationParams) error
+	UpdateStateCoffers(ctx context.Context, arg *UpdateStateCoffersParams) (int32, error)
 }
 
 var _ Querier = (*Queries)(nil)

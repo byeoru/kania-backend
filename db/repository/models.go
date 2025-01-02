@@ -9,31 +9,61 @@ import (
 	"time"
 )
 
+type Levy struct {
+	LevyID            int64     `json:"levy_id"`
+	Name              string    `json:"name"`
+	Morale            int16     `json:"morale"`
+	Encampment        int32     `json:"encampment"`
+	Swordmen          int32     `json:"swordmen"`
+	ShieldBearers     int32     `json:"shield_bearers"`
+	Archers           int32     `json:"archers"`
+	Lancers           int32     `json:"lancers"`
+	SupplyTroop       int32     `json:"supply_troop"`
+	MovementSpeed     float64   `json:"movement_speed"`
+	OffensiveStrength int32     `json:"offensive_strength"`
+	DefensiveStrength int32     `json:"defensive_strength"`
+	RealmMemberID     int64     `json:"realm_member_id"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
 type Realm struct {
-	ID              int64     `json:"id"`
-	Name            string    `json:"name"`
-	OwnerNickname   string    `json:"owner_nickname"`
-	OwnerID         int64     `json:"owner_id"`
-	CapitalNumber   int32     `json:"capital_number"`
-	PoliticalEntity string    `json:"political_entity"`
-	Color           string    `json:"color"`
-	CreatedAt       time.Time `json:"created_at"`
+	RealmID              int64     `json:"realm_id"`
+	Name                 string    `json:"name"`
+	OwnerNickname        string    `json:"owner_nickname"`
+	OwnerID              int64     `json:"owner_id"`
+	CapitalNumber        int32     `json:"capital_number"`
+	PoliticalEntity      string    `json:"political_entity"`
+	Color                string    `json:"color"`
+	PopulationGrowthRate float64   `json:"population_growth_rate"`
+	StateCoffers         int32     `json:"state_coffers"`
+	CensusAt             time.Time `json:"census_at"`
+	TaxCollectionAt      time.Time `json:"tax_collection_at"`
+	CreatedAt            time.Time `json:"created_at"`
+}
+
+type RealmMember struct {
+	UserID       int64     `json:"user_id"`
+	RealmID      int64     `json:"realm_id"`
+	Status       string    `json:"status"`
+	PrivateMoney int32     `json:"private_money"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type RealmSectorsJsonb struct {
-	RealmID    int64           `json:"realm_id"`
-	CellsJsonb json.RawMessage `json:"cells_jsonb"`
+	RealmSectorsJsonbID int64           `json:"realm_sectors_jsonb_id"`
+	CellsJsonb          json.RawMessage `json:"cells_jsonb"`
 }
 
 type Sector struct {
 	CellNumber     int32     `json:"cell_number"`
 	ProvinceNumber int32     `json:"province_number"`
 	RealmID        int64     `json:"realm_id"`
+	Population     int32     `json:"population"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 
 type User struct {
-	ID             int64     `json:"id"`
+	UserID         int64     `json:"user_id"`
 	Email          string    `json:"email"`
 	HashedPassword string    `json:"hashed_password"`
 	Nickname       string    `json:"nickname"`

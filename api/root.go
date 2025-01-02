@@ -38,6 +38,9 @@ func NewApi(service *service.Service) *Api {
 	// router
 	newUserRouter(r)
 	NewRealmRouter(r)
+	NewSectorRouter(r)
+	NewLevyRouter(r)
+	NewRealmMemberRouter(r)
 
 	r.engine.LoadHTMLFiles("static/index.html")
 	r.engine.Static("/assets", "static/assets")

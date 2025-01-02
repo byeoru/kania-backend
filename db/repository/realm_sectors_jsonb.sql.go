@@ -12,18 +12,18 @@ import (
 
 const createRealmSectorsJsonb = `-- name: CreateRealmSectorsJsonb :exec
 INSERT INTO realm_sectors_jsonb (
-    realm_id, cells_jsonb
+    realm_sectors_jsonb_id, cells_jsonb
 ) VALUES (
     $1, $2
 )
 `
 
 type CreateRealmSectorsJsonbParams struct {
-	RealmID    int64           `json:"realm_id"`
-	CellsJsonb json.RawMessage `json:"cells_jsonb"`
+	RealmSectorsJsonbID int64           `json:"realm_sectors_jsonb_id"`
+	CellsJsonb          json.RawMessage `json:"cells_jsonb"`
 }
 
-func (q *Queries) CreateRealmSectorsJsonb(ctx context.Context, arg CreateRealmSectorsJsonbParams) error {
-	_, err := q.db.ExecContext(ctx, createRealmSectorsJsonb, arg.RealmID, arg.CellsJsonb)
+func (q *Queries) CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmSectorsJsonbParams) error {
+	_, err := q.db.ExecContext(ctx, createRealmSectorsJsonb, arg.RealmSectorsJsonbID, arg.CellsJsonb)
 	return err
 }

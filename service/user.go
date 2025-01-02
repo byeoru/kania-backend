@@ -29,7 +29,7 @@ func newUserService(store db.Store) *UserService {
 	return userServiceInstance
 }
 
-func (s *UserService) FindUser(ctx *gin.Context, id int64) (db.User, error) {
+func (s *UserService) FindUser(ctx *gin.Context, id int64) (*db.User, error) {
 	return s.store.FindUserById(ctx, id)
 }
 
@@ -43,10 +43,10 @@ func (s *UserService) HashPassword(password string) (string, error) {
 }
 
 func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams) error {
-	return s.store.CreateUser(ctx, *newUser)
+	return s.store.CreateUser(ctx, newUser)
 }
 
-func (s *UserService) Login(ctx *gin.Context, email string) (db.User, error) {
+func (s *UserService) Login(ctx *gin.Context, email string) (*db.User, error) {
 	return s.store.FindUserByEmail(ctx, email)
 }
 

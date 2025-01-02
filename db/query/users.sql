@@ -13,4 +13,4 @@ WHERE email = $1 LIMIT 1;
 
 -- name: FindUserById :one
 SELECT * FROM users
-WHERE id = $1 LIMIT 1;
+WHERE user_id = $1 LIMIT 1;

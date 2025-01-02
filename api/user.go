@@ -65,11 +65,11 @@ func (r *userRouter) signup(ctx *gin.Context) {
 		if pqErr.Code.Name() == "unique_violation" {
 			switch pqErr.Constraint {
 			case "users_email_key":
-				ctx.JSON(http.StatusForbidden, &types.SignupUserResponse{
+				ctx.JSON(http.StatusConflict, &types.SignupUserResponse{
 					APIResponse: types.NewAPIResponse(false, "이미 사용 중인 이메일입니다.", pqErr.Detail),
 				})
 			case "users_nickname_key":
-				ctx.JSON(http.StatusForbidden, &types.SignupUserResponse{
+				ctx.JSON(http.StatusConflict, &types.SignupUserResponse{
 					APIResponse: types.NewAPIResponse(false, "이미 사용 중인 닉네임입니다.", pqErr.Detail),
 				})
 			}
@@ -113,7 +113,7 @@ func (r *userRouter) login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := r.userService.CreateToken(user.ID)
+	token, err := r.userService.CreateToken(user.UserID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.LoginUserResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),

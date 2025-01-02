@@ -1,23 +1,15 @@
 package types
 
 import (
+	"time"
+
 	db "github.com/byeoru/kania/db/repository"
 	"github.com/sqlc-dev/pqtype"
 )
 
-var PoliticalEntitySet = map[string]struct{}{
-	"Tribe":                {}, // 부족
-	"TribalConfederation":  {}, // 부족 연맹
-	"Kingdom":              {}, // 왕국
-	"KingdomConfederation": {}, // 왕국 연맹
-	"Empire":               {}, // 제국
-	"FeudatoryState":       {}, // 번국
-}
-
 type RealmResponse struct {
 	ID              int64                 `json:"id"`
 	Name            string                `json:"name"`
-	OwnerID         int64                 `json:"owner_id"`
 	OwnerNickname   string                `json:"owner_nickname"`
 	CapitalNumber   int32                 `json:"capital_number"`
 	PoliticalEntity string                `json:"political_entity"`
@@ -25,36 +17,66 @@ type RealmResponse struct {
 	RealmCellsJson  pqtype.NullRawMessage `json:"realm_cells_json"`
 }
 
+type MyRealmResponse struct {
+	*RealmResponse
+	PopulationGrowthRate float64   `json:"population_growth_rate"`
+	StateCoffers         int32     `json:"state_coffers"`
+	CensusAt             time.Time `json:"census_at"`
+	TaxCollectionAt      time.Time `json:"tax_collection_at"`
+}
+
 type GetMyRealmsResponse struct {
-	APIResponse *apiResponse   `json:"api_response"`
-	Realm       *RealmResponse `json:"realm"`
+	APIResponse *apiResponse     `json:"api_response"`
+	Realm       *MyRealmResponse `json:"realm"`
 }
 
 type GetMeAndOthersReams struct {
 	APIResponse     *apiResponse     `json:"api_response"`
-	MyRealm         *RealmResponse   `json:"my_realm"`
+	MyRealm         *MyRealmResponse `json:"my_realm"`
 	TheOthersRealms []*RealmResponse `json:"the_others_realms"`
 }
 
-func ToMyRealmResponse(realm db.FindRealmWithJsonRow) *RealmResponse {
-	rsRealms := RealmResponse{
-		ID:              realm.ID,
-		Name:            realm.Name,
-		OwnerID:         realm.OwnerID,
-		OwnerNickname:   realm.OwnerNickname,
-		CapitalNumber:   realm.CapitalNumber,
-		PoliticalEntity: realm.PoliticalEntity,
-		Color:           realm.Color,
-		RealmCellsJson:  realm.CellsJsonb,
+func ToMyRealmResponse(realm *db.FindRealmWithJsonRow) *MyRealmResponse {
+	rsRealms := MyRealmResponse{
+		RealmResponse: &RealmResponse{
+			ID:              realm.RealmID,
+			Name:            realm.Name,
+			OwnerNickname:   realm.OwnerNickname,
+			CapitalNumber:   realm.CapitalNumber,
+			PoliticalEntity: realm.PoliticalEntity,
+			Color:           realm.Color,
+			RealmCellsJson:  realm.CellsJsonb,
+		},
+		PopulationGrowthRate: realm.PopulationGrowthRate,
+		StateCoffers:         realm.StateCoffers,
+		CensusAt:             realm.CensusAt,
+		TaxCollectionAt:      realm.TaxCollectionAt,
 	}
 	return &rsRealms
 }
 
-func ToTheOthersRealmsResponse(realm db.FindAllRealmsWithJsonExcludeMeRow) *RealmResponse {
+func ToMyRealmFromEntityResponse(realm *db.Realm) *MyRealmResponse {
+	rsRealms := MyRealmResponse{
+		RealmResponse: &RealmResponse{
+			ID:              realm.RealmID,
+			Name:            realm.Name,
+			OwnerNickname:   realm.OwnerNickname,
+			CapitalNumber:   realm.CapitalNumber,
+			PoliticalEntity: realm.PoliticalEntity,
+			Color:           realm.Color,
+		},
+		PopulationGrowthRate: realm.PopulationGrowthRate,
+		StateCoffers:         realm.StateCoffers,
+		CensusAt:             realm.CensusAt,
+		TaxCollectionAt:      realm.TaxCollectionAt,
+	}
+	return &rsRealms
+}
+
+func ToTheOthersRealmsResponse(realm *db.FindAllRealmsWithJsonExcludeMeRow) *RealmResponse {
 	rsRealms := RealmResponse{
-		ID:              realm.ID,
+		ID:              realm.RealmID,
 		Name:            realm.Name,
-		OwnerID:         realm.OwnerID,
 		OwnerNickname:   realm.OwnerNickname,
 		CapitalNumber:   realm.CapitalNumber,
 		PoliticalEntity: realm.PoliticalEntity,
@@ -65,13 +87,23 @@ func ToTheOthersRealmsResponse(realm db.FindAllRealmsWithJsonExcludeMeRow) *Real
 }
 
 type EstablishARealmRequest struct {
-	Name           string `json:"name" binding:"required,min=1,max=10"`
-	CellNumber     int32  `json:"cell_number" binding:"required"`
-	ProvinceNumber int32  `json:"province_number" binding:"required"`
-	RealmColor     string `json:"realm_color" binding:"required,hexColor"`
+	Name           string    `json:"name" binding:"required,min=1,max=10"`
+	CellNumber     int32     `json:"cell_number" binding:"required"`
+	ProvinceNumber int32     `json:"province_number" binding:"required"`
+	RealmColor     string    `json:"realm_color" binding:"required,hexColor"`
+	InitDate       time.Time `json:"init_date" binding:"required"`
+	Population     int32     `json:"population" binding:"required,min=0"`
 }
 
 type EstablishARealmResponse struct {
+	APIResponse *apiResponse     `json:"api_response"`
+	MyRealm     *MyRealmResponse `json:"my_realm"`
+}
+
+type ExecuteCensusRequest struct {
+	CurrentDate time.Time `json:"current_date" binding:"required"`
+}
+
+type ExecuteCensusResponse struct {
 	APIResponse *apiResponse `json:"api_response"`
-	RealmId     int64        `json:"realm_id"`
 }

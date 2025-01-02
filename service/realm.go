@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	db "github.com/byeoru/kania/db/repository"
+	"github.com/byeoru/kania/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,11 +27,11 @@ func newRealmService(store db.Store) *RealmService {
 	return realmServiceInstance
 }
 
-func (s *RealmService) FindMyRealm(ctx *gin.Context, userId int64) (db.FindRealmWithJsonRow, error) {
+func (s *RealmService) FindMyRealm(ctx *gin.Context, userId int64) (*db.FindRealmWithJsonRow, error) {
 	return s.store.FindRealmWithJson(ctx, userId)
 }
 
-func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, userId int64) ([]db.FindAllRealmsWithJsonExcludeMeRow, error) {
+func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, userId int64) ([]*db.FindAllRealmsWithJsonExcludeMeRow, error) {
 	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, userId)
 }
 
@@ -38,17 +39,17 @@ func (s *RealmService) RegisterRealm(
 	ctx *gin.Context,
 	realm *db.CreateRealmParams,
 	sector *db.CreateSectorParams,
-) (int64, error) {
-	var id int64
+) (*db.Realm, error) {
+	var result *db.Realm
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
 		realm.Color = realm.Color[1:]
-		realmId, err := q.CreateRealm(ctx, *realm)
+		realm, err := q.CreateRealm(ctx, realm)
 		if err != nil {
 			return err
 		}
 
-		sector.RealmID = realmId
-		err = q.CreateSector(ctx, *sector)
+		sector.RealmID = realm.RealmID
+		err = q.CreateSector(ctx, sector)
 		if err != nil {
 			return err
 		}
@@ -59,15 +60,36 @@ func (s *RealmService) RegisterRealm(
 		if err != nil {
 			return err
 		}
-		err = q.CreateRealmSectorsJsonb(ctx, db.CreateRealmSectorsJsonbParams{
-			RealmID:    realmId,
-			CellsJsonb: json,
+		err = q.CreateRealmSectorsJsonb(ctx, &db.CreateRealmSectorsJsonbParams{
+			RealmSectorsJsonbID: realm.RealmID,
+			CellsJsonb:          json,
 		})
 		if err != nil {
 			return err
 		}
-		id = realmId
+		err = q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
+			RealmID:      realm.RealmID,
+			UserID:       realm.OwnerID,
+			Status:       util.Chief,
+			PrivateMoney: util.DefaultPrivateMoney,
+		})
+		if err != nil {
+			return err
+		}
+		result = realm
 		return nil
 	})
-	return id, err
+	return result, err
+}
+
+func (s *RealmService) GetDataForCensus(ctx *gin.Context, realmId int64) (*db.GetCensusAndPopulationGrowthRateRow, error) {
+	return s.store.GetCensusAndPopulationGrowthRate(ctx, realmId)
+}
+
+func (s *RealmService) GetMyRealmId(ctx *gin.Context, userId int64) (int64, error) {
+	return s.store.GetRealmId(ctx, userId)
+}
+
+func (s *RealmService) GetMyRealmIdFromSectorNumber(ctx *gin.Context, arg *db.GetRealmIdWithSectorParams) (*db.GetRealmIdWithSectorRow, error) {
+	return s.store.GetRealmIdWithSector(ctx, arg)
 }

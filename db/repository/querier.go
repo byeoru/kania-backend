@@ -27,7 +27,7 @@ type Querier interface {
 	GetRealmIdWithSector(ctx context.Context, arg *GetRealmIdWithSectorParams) (*GetRealmIdWithSectorRow, error)
 	GetRealmMembersLevies(ctx context.Context, realmID int64) ([]*GetRealmMembersLeviesRow, error)
 	UpdateCensusAt(ctx context.Context, arg *UpdateCensusAtParams) error
-	UpdatePopulation(ctx context.Context, arg *UpdatePopulationParams) error
+	UpdateCensusPopulation(ctx context.Context, arg *UpdateCensusPopulationParams) error
 	UpdateStateCoffers(ctx context.Context, arg *UpdateStateCoffersParams) (int32, error)
 }
 

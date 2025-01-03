@@ -54,19 +54,19 @@ func (q *Queries) GetPopulation(ctx context.Context, cellNumber int32) (*GetPopu
 	return &i, err
 }
 
-const updatePopulation = `-- name: UpdatePopulation :exec
+const updateCensusPopulation = `-- name: UpdateCensusPopulation :exec
 UPDATE sectors 
 SET population = CEIL(population * POW(1 + $1::float, $2::float / 365.25))
 WHERE realm_id = $3::bigint
 `
 
-type UpdatePopulationParams struct {
+type UpdateCensusPopulationParams struct {
 	RateOfIncrease float64 `json:"rate_of_increase"`
 	DurationDay    float64 `json:"duration_day"`
 	RealmID        int64   `json:"realm_id"`
 }
 
-func (q *Queries) UpdatePopulation(ctx context.Context, arg *UpdatePopulationParams) error {
-	_, err := q.db.ExecContext(ctx, updatePopulation, arg.RateOfIncrease, arg.DurationDay, arg.RealmID)
+func (q *Queries) UpdateCensusPopulation(ctx context.Context, arg *UpdateCensusPopulationParams) error {
+	_, err := q.db.ExecContext(ctx, updateCensusPopulation, arg.RateOfIncrease, arg.DurationDay, arg.RealmID)
 	return err
 }

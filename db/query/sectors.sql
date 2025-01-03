@@ -8,7 +8,7 @@ INSERT INTO sectors (
     $1, $2, $3, $4
 );
 
--- name: UpdatePopulation :exec
+-- name: UpdateCensusPopulation :exec
 UPDATE sectors 
 SET population = CEIL(population * POW(1 + @rate_of_increase::float, sqlc.arg(duration_day)::float / 365.25))
 WHERE realm_id = sqlc.arg(realm_id)::bigint;

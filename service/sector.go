@@ -25,13 +25,13 @@ func newSectorService(store db.Store) *SectorService {
 	return sectorServiceInstance
 }
 
-func (s *SectorService) IncreasePopulation(ctx *gin.Context, arg *db.UpdatePopulationParams) error {
-	return s.store.UpdatePopulation(ctx, arg)
+func (s *SectorService) IncreasePopulation(ctx *gin.Context, arg *db.UpdateCensusPopulationParams) error {
+	return s.store.UpdateCensusPopulation(ctx, arg)
 }
 
-func (s *SectorService) ApplyCensus(ctx *gin.Context, realmArg *db.UpdateCensusAtParams, sectorArg *db.UpdatePopulationParams) error {
+func (s *SectorService) ApplyCensus(ctx *gin.Context, realmArg *db.UpdateCensusAtParams, sectorArg *db.UpdateCensusPopulationParams) error {
 	return s.store.ExecTx(ctx, func(q *db.Queries) error {
-		err := q.UpdatePopulation(ctx, sectorArg)
+		err := q.UpdateCensusPopulation(ctx, sectorArg)
 		if err != nil {
 			return err
 		}

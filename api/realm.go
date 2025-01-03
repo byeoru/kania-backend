@@ -196,7 +196,7 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 		RealmID:  myRealmId,
 		CensusAt: req.CurrentDate,
 	}
-	sectorArg := db.UpdatePopulationParams{
+	sectorArg := db.UpdateCensusPopulationParams{
 		RealmID:        myRealmId,
 		DurationDay:    days,
 		RateOfIncrease: censusMetadata.PopulationGrowthRate,

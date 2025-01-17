@@ -1,10 +1,13 @@
 package service
 
 import (
-	"fmt"
+	"database/sql"
+	"net/http"
 	"sync"
 
 	db "github.com/byeoru/kania/db/repository"
+	"github.com/byeoru/kania/types"
+	errors "github.com/byeoru/kania/types/error"
 	"github.com/byeoru/kania/util"
 	"github.com/gin-gonic/gin"
 )
@@ -27,34 +30,58 @@ func newLevyService(store db.Store) *LevyService {
 	return levyServiceInstance
 }
 
-func (s *LevyService) FormAUnit(ctx *gin.Context, myRealmId int64, levyArg *db.CreateLevyParams) (*db.Levy, int32, error) {
+func (s *LevyService) FormAUnit(ctx *gin.Context, myRealmId int64, levyArg *db.CreateLevyParams) (*db.Levy, *types.CreateLevyResultInfo, error) {
 	var levy *db.Levy
-	var stateCoffers int32
+	var resultInfo *types.CreateLevyResultInfo
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
-		wholeProductionCost := levyArg.Swordmen*util.SwordsmanProductionCost +
-			levyArg.Archers*util.ArcherProductionCost +
-			levyArg.ShieldBearers*util.ShieldBearerProductionCost +
-			levyArg.Lancers*util.LancerProductionCost +
-			levyArg.SupplyTroop*util.SupplyTroopProductionCost
+		unitStat := util.GetUnitStat()
+		wholeProductionCost := levyArg.Swordmen*unitStat.Swordman.ProductionCost +
+			levyArg.Archers*unitStat.Archer.ProductionCost +
+			levyArg.ShieldBearers*unitStat.ShieldBearer.ProductionCost +
+			levyArg.Lancers*unitStat.Lancer.ProductionCost +
+			levyArg.SupplyTroop*unitStat.SupplyTroop.ProductionCost
 
 		updatedCoffers, err := s.store.UpdateStateCoffers(ctx, &db.UpdateStateCoffersParams{
 			RealmID:   myRealmId,
 			Deduction: wholeProductionCost,
 		})
-
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return errors.NewTxError(http.StatusUnprocessableEntity, "국고가 부족합니다.")
+			}
 			return err
 		}
 
 		newLevy, err := q.CreateLevy(ctx, levyArg)
 		if err != nil {
-			fmt.Println("2", err)
+			return err
+		}
+
+		population, err := q.UpdatePopulation(ctx, &db.UpdatePopulationParams{
+			Cellnumber: newLevy.Encampment,
+			Deduction:  levyArg.Swordmen + levyArg.Archers + levyArg.ShieldBearers + levyArg.Lancers + levyArg.SupplyTroop,
+		})
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errors.NewTxError(http.StatusUnprocessableEntity, "인구가 부족합니다.")
+			}
 			return err
 		}
 
 		levy = newLevy
-		stateCoffers = updatedCoffers
+		resultInfo = &types.CreateLevyResultInfo{
+			StateCoffers: updatedCoffers,
+			Population:   population,
+		}
 		return nil
 	})
-	return levy, stateCoffers, err
+	return levy, resultInfo, err
+}
+
+func (s *LevyService) IsMyLevy(ctx *gin.Context, userId int64, levyId int64) (bool, error) {
+	ownerId, err := s.store.GetOwnerIdByLevyId(ctx, levyId)
+	if err != nil {
+		return false, err
+	}
+	return ownerId == userId, nil
 }

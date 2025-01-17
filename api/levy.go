@@ -10,6 +10,7 @@ import (
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/token"
 	"github.com/byeoru/kania/types"
+	errors "github.com/byeoru/kania/types/error"
 	"github.com/byeoru/kania/util"
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +48,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
 	arg1 := db.GetRealmIdWithSectorParams{
-		OwnerID:    authPayload.UserId,
+		OwnerID:    sql.NullInt64{Int64: authPayload.UserId, Valid: true},
 		CellNumber: req.Encampment,
 	}
 
@@ -72,44 +73,33 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 		return
 	}
 
-	combatUnitCount := req.Swordmen + req.Archers + req.ShieldBearers + req.Lancers
-
-	movementSpeed := float64(req.Swordmen*util.SwordmanSpeed+
-		req.Archers*util.ArcherSpeed+
-		req.ShieldBearers*util.ShieldBearerSpeed+
-		req.Lancers*util.LancerSpeed+
-		req.SupplyTroop*util.SupplyTroopSpeed) / float64(combatUnitCount+req.SupplyTroop)
-
-	offensiveStrength := (req.Swordmen*util.SwordmanOffensive +
-		req.Archers*util.ArcherOffensive +
-		req.ShieldBearers*util.ShieldBearerOffensive +
-		req.Lancers*util.LancerOffensive) / (combatUnitCount)
-
-	defensiveStrength := (req.Swordmen*util.SwordmanDefensive +
-		req.Archers*util.ArcherDefensive +
-		req.ShieldBearers*util.ShieldBearerDefensive +
-		req.Lancers*util.LancerDefensive) / (combatUnitCount)
+	movementSpeed := util.CalculateLevyAdvanceSpeed(&db.Levy{
+		Swordmen:      req.Swordmen,
+		Archers:       req.Archers,
+		ShieldBearers: req.ShieldBearers,
+		Lancers:       req.Lancers,
+		SupplyTroop:   req.SupplyTroop,
+	})
 
 	arg2 := db.CreateLevyParams{
-		RealmMemberID:     authPayload.UserId,
-		MovementSpeed:     movementSpeed,
-		OffensiveStrength: offensiveStrength,
-		DefensiveStrength: defensiveStrength,
-		Name:              req.Name,
-		Morale:            util.DefaultMorale,
-		Encampment:        req.Encampment,
-		Swordmen:          req.Swordmen,
-		Archers:           req.Archers,
-		ShieldBearers:     req.ShieldBearers,
-		Lancers:           req.Lancers,
-		SupplyTroop:       req.SupplyTroop,
+		RealmMemberID: authPayload.UserId,
+		MovementSpeed: movementSpeed,
+		Name:          req.Name,
+		Morale:        util.DefaultMorale,
+		Encampment:    req.Encampment,
+		Swordmen:      req.Swordmen,
+		Archers:       req.Archers,
+		ShieldBearers: req.ShieldBearers,
+		Lancers:       req.Lancers,
+		SupplyTroop:   req.SupplyTroop,
+		Stationed:     true,
 	}
 
-	levy, stateCoffers, err := r.levyService.FormAUnit(ctx, foundRealmSector.RealmID, &arg2)
+	levy, resultInfo, err := r.levyService.FormAUnit(ctx, foundRealmSector.RealmID, &arg2)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusUnprocessableEntity, &types.CreateLevyResponse{
-				APIResponse: types.NewAPIResponse(false, "국고가 부족합니다.", nil),
+		if txError, ok := err.(*errors.TxError); ok {
+			ctx.JSON(txError.Code, &types.CreateLevyResponse{
+				APIResponse: types.NewAPIResponse(false, txError.Message, txError.Error()),
 			})
 			return
 		}
@@ -121,9 +111,10 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, &types.CreateLevyResponse{
 		APIResponse:  types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
-		StateCoffers: stateCoffers,
+		StateCoffers: resultInfo.StateCoffers,
+		Population:   resultInfo.Population,
 		Levy:         types.ToLevyResponse(levy),
-		RealmMemberIDs: &types.RealmMemberIDs{
+		LevyAffiliation: &types.LevyAffiliation{
 			RealmID: foundRealmSector.RealmID,
 			UserID:  authPayload.UserId,
 		},

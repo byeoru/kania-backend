@@ -10,6 +10,26 @@ import (
 	"encoding/json"
 )
 
+const addRealmSectorJsonb = `-- name: AddRealmSectorJsonb :exec
+UPDATE realm_sectors_jsonb
+SET cells_jsonb = jsonb_set(
+  cells_jsonb,
+  $1::varchar,  -- 배열을 수정할 키의 경로
+  $2::int  -- 배열에 새로운 요소 추가
+) WHERE realm_sectors_jsonb_id = $3::bigint
+`
+
+type AddRealmSectorJsonbParams struct {
+	Key     string `json:"key"`
+	Value   int32  `json:"value"`
+	RealmID int64  `json:"realm_id"`
+}
+
+func (q *Queries) AddRealmSectorJsonb(ctx context.Context, arg *AddRealmSectorJsonbParams) error {
+	_, err := q.db.ExecContext(ctx, addRealmSectorJsonb, arg.Key, arg.Value, arg.RealmID)
+	return err
+}
+
 const createRealmSectorsJsonb = `-- name: CreateRealmSectorsJsonb :exec
 INSERT INTO realm_sectors_jsonb (
     realm_sectors_jsonb_id, cells_jsonb
@@ -25,5 +45,21 @@ type CreateRealmSectorsJsonbParams struct {
 
 func (q *Queries) CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmSectorsJsonbParams) error {
 	_, err := q.db.ExecContext(ctx, createRealmSectorsJsonb, arg.RealmSectorsJsonbID, arg.CellsJsonb)
+	return err
+}
+
+const removeSectorJsonb = `-- name: RemoveSectorJsonb :exec
+UPDATE realm_sectors_jsonb
+SET cells_jsonb = cells_jsonb - $1::int
+WHERE realm_sectors_jsonb_id = $2::bigint
+`
+
+type RemoveSectorJsonbParams struct {
+	CellNumber int32 `json:"cell_number"`
+	RealmID    int64 `json:"realm_id"`
+}
+
+func (q *Queries) RemoveSectorJsonb(ctx context.Context, arg *RemoveSectorJsonbParams) error {
+	_, err := q.db.ExecContext(ctx, removeSectorJsonb, arg.CellNumber, arg.RealmID)
 	return err
 }

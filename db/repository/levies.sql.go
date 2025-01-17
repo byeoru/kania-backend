@@ -13,6 +13,7 @@ const createLevy = `-- name: CreateLevy :one
 INSERT INTO levies (
     name,
     morale,
+    stationed,
     encampment,
     swordmen,
     shield_bearers,
@@ -20,33 +21,31 @@ INSERT INTO levies (
     lancers,
     supply_troop,
     movement_speed,
-    offensive_strength,
-    defensive_strength,
     realm_member_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
-) RETURNING levy_id, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, offensive_strength, defensive_strength, realm_member_id, created_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+) RETURNING levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, realm_member_id, realm_id, created_at
 `
 
 type CreateLevyParams struct {
-	Name              string  `json:"name"`
-	Morale            int16   `json:"morale"`
-	Encampment        int32   `json:"encampment"`
-	Swordmen          int32   `json:"swordmen"`
-	ShieldBearers     int32   `json:"shield_bearers"`
-	Archers           int32   `json:"archers"`
-	Lancers           int32   `json:"lancers"`
-	SupplyTroop       int32   `json:"supply_troop"`
-	MovementSpeed     float64 `json:"movement_speed"`
-	OffensiveStrength int32   `json:"offensive_strength"`
-	DefensiveStrength int32   `json:"defensive_strength"`
-	RealmMemberID     int64   `json:"realm_member_id"`
+	Name          string  `json:"name"`
+	Morale        int16   `json:"morale"`
+	Stationed     bool    `json:"stationed"`
+	Encampment    int32   `json:"encampment"`
+	Swordmen      int32   `json:"swordmen"`
+	ShieldBearers int32   `json:"shield_bearers"`
+	Archers       int32   `json:"archers"`
+	Lancers       int32   `json:"lancers"`
+	SupplyTroop   int32   `json:"supply_troop"`
+	MovementSpeed float64 `json:"movement_speed"`
+	RealmMemberID int64   `json:"realm_member_id"`
 }
 
 func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error) {
 	row := q.db.QueryRowContext(ctx, createLevy,
 		arg.Name,
 		arg.Morale,
+		arg.Stationed,
 		arg.Encampment,
 		arg.Swordmen,
 		arg.ShieldBearers,
@@ -54,13 +53,12 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 		arg.Lancers,
 		arg.SupplyTroop,
 		arg.MovementSpeed,
-		arg.OffensiveStrength,
-		arg.DefensiveStrength,
 		arg.RealmMemberID,
 	)
 	var i Levy
 	err := row.Scan(
 		&i.LevyID,
+		&i.Stationed,
 		&i.Name,
 		&i.Morale,
 		&i.Encampment,
@@ -70,10 +68,118 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 		&i.Lancers,
 		&i.SupplyTroop,
 		&i.MovementSpeed,
-		&i.OffensiveStrength,
-		&i.DefensiveStrength,
 		&i.RealmMemberID,
+		&i.RealmID,
 		&i.CreatedAt,
 	)
 	return &i, err
+}
+
+const findStationedLevies = `-- name: FindStationedLevies :many
+SELECT levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, realm_member_id, realm_id, created_at FROM levies
+WHERE encampment = $1 AND stationed = true
+FOR UPDATE
+`
+
+func (q *Queries) FindStationedLevies(ctx context.Context, encampment int32) ([]*Levy, error) {
+	rows, err := q.db.QueryContext(ctx, findStationedLevies, encampment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Levy{}
+	for rows.Next() {
+		var i Levy
+		if err := rows.Scan(
+			&i.LevyID,
+			&i.Stationed,
+			&i.Name,
+			&i.Morale,
+			&i.Encampment,
+			&i.Swordmen,
+			&i.ShieldBearers,
+			&i.Archers,
+			&i.Lancers,
+			&i.SupplyTroop,
+			&i.MovementSpeed,
+			&i.RealmMemberID,
+			&i.RealmID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getOwnerIdByLevyId = `-- name: GetOwnerIdByLevyId :one
+SELECT realm_member_id FROM levies
+WHERE levy_id = $1
+`
+
+func (q *Queries) GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getOwnerIdByLevyId, levyID)
+	var realm_member_id int64
+	err := row.Scan(&realm_member_id)
+	return realm_member_id, err
+}
+
+const updateLevy = `-- name: UpdateLevy :exec
+UPDATE levies
+SET encampment = $2,
+swordmen = $3,
+shield_bearers = $4,
+archers = $5,
+lancers = $6,
+supply_troop = $7,
+movement_speed = $8
+WHERE levy_id = $1
+`
+
+type UpdateLevyParams struct {
+	LevyID        int64   `json:"levy_id"`
+	Encampment    int32   `json:"encampment"`
+	Swordmen      int32   `json:"swordmen"`
+	ShieldBearers int32   `json:"shield_bearers"`
+	Archers       int32   `json:"archers"`
+	Lancers       int32   `json:"lancers"`
+	SupplyTroop   int32   `json:"supply_troop"`
+	MovementSpeed float64 `json:"movement_speed"`
+}
+
+func (q *Queries) UpdateLevy(ctx context.Context, arg *UpdateLevyParams) error {
+	_, err := q.db.ExecContext(ctx, updateLevy,
+		arg.LevyID,
+		arg.Encampment,
+		arg.Swordmen,
+		arg.ShieldBearers,
+		arg.Archers,
+		arg.Lancers,
+		arg.SupplyTroop,
+		arg.MovementSpeed,
+	)
+	return err
+}
+
+const updateLevyStatus = `-- name: UpdateLevyStatus :exec
+UPDATE levies
+SET stationed = $2
+WHERE levy_id = $1
+`
+
+type UpdateLevyStatusParams struct {
+	LevyID    int64 `json:"levy_id"`
+	Stationed bool  `json:"stationed"`
+}
+
+func (q *Queries) UpdateLevyStatus(ctx context.Context, arg *UpdateLevyStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateLevyStatus, arg.LevyID, arg.Stationed)
+	return err
 }

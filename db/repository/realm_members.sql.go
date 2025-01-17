@@ -7,98 +7,40 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createRealmMember = `-- name: CreateRealmMember :exec
 INSERT INTO realm_members (
-    realm_id,
     user_id,
     status,
     private_money
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3
 )
 `
 
 type CreateRealmMemberParams struct {
-	RealmID      int64  `json:"realm_id"`
 	UserID       int64  `json:"user_id"`
 	Status       string `json:"status"`
 	PrivateMoney int32  `json:"private_money"`
 }
 
 func (q *Queries) CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error {
-	_, err := q.db.ExecContext(ctx, createRealmMember,
-		arg.RealmID,
-		arg.UserID,
-		arg.Status,
-		arg.PrivateMoney,
-	)
+	_, err := q.db.ExecContext(ctx, createRealmMember, arg.UserID, arg.Status, arg.PrivateMoney)
 	return err
 }
 
 const getRealmIdByUserId = `-- name: GetRealmIdByUserId :one
-SELECT realm_id FROM realm_members
+SELECT R.realm_id FROM realm_members AS RM
+LEFT JOIN realms as R
+ON RM.user_id = R.owner_id
 WHERE user_id = $1
 `
 
-func (q *Queries) GetRealmIdByUserId(ctx context.Context, userID int64) (int64, error) {
+func (q *Queries) GetRealmIdByUserId(ctx context.Context, userID int64) (sql.NullInt64, error) {
 	row := q.db.QueryRowContext(ctx, getRealmIdByUserId, userID)
-	var realm_id int64
+	var realm_id sql.NullInt64
 	err := row.Scan(&realm_id)
 	return realm_id, err
-}
-
-const getRealmMembersLevies = `-- name: GetRealmMembersLevies :many
-SELECT r.user_id, r.realm_id, r.status, r.private_money, r.created_at, l.levy_id, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.offensive_strength, l.defensive_strength, l.realm_member_id, l.created_at FROM realm_members AS R
-INNER JOIN levies AS L ON R.user_id = L.realm_member_id
-WHERE R.realm_id = $1
-`
-
-type GetRealmMembersLeviesRow struct {
-	RealmMember RealmMember `json:"realm_member"`
-	Levy        Levy        `json:"levy"`
-}
-
-func (q *Queries) GetRealmMembersLevies(ctx context.Context, realmID int64) ([]*GetRealmMembersLeviesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getRealmMembersLevies, realmID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []*GetRealmMembersLeviesRow{}
-	for rows.Next() {
-		var i GetRealmMembersLeviesRow
-		if err := rows.Scan(
-			&i.RealmMember.UserID,
-			&i.RealmMember.RealmID,
-			&i.RealmMember.Status,
-			&i.RealmMember.PrivateMoney,
-			&i.RealmMember.CreatedAt,
-			&i.Levy.LevyID,
-			&i.Levy.Name,
-			&i.Levy.Morale,
-			&i.Levy.Encampment,
-			&i.Levy.Swordmen,
-			&i.Levy.ShieldBearers,
-			&i.Levy.Archers,
-			&i.Levy.Lancers,
-			&i.Levy.SupplyTroop,
-			&i.Levy.MovementSpeed,
-			&i.Levy.OffensiveStrength,
-			&i.Levy.DefensiveStrength,
-			&i.Levy.RealmMemberID,
-			&i.Levy.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

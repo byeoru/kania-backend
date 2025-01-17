@@ -11,7 +11,7 @@ type RealmResponse struct {
 	ID              int64                 `json:"id"`
 	Name            string                `json:"name"`
 	OwnerNickname   string                `json:"owner_nickname"`
-	CapitalNumber   int32                 `json:"capital_number"`
+	Capitals        []int32               `json:"capitals"`
 	PoliticalEntity string                `json:"political_entity"`
 	Color           string                `json:"color"`
 	RealmCellsJson  pqtype.NullRawMessage `json:"realm_cells_json"`
@@ -37,12 +37,15 @@ type GetMeAndOthersReams struct {
 }
 
 func ToMyRealmResponse(realm *db.FindRealmWithJsonRow) *MyRealmResponse {
+	if realm == nil {
+		return nil
+	}
 	rsRealms := MyRealmResponse{
 		RealmResponse: &RealmResponse{
 			ID:              realm.RealmID,
 			Name:            realm.Name,
 			OwnerNickname:   realm.OwnerNickname,
-			CapitalNumber:   realm.CapitalNumber,
+			Capitals:        realm.Capitals,
 			PoliticalEntity: realm.PoliticalEntity,
 			Color:           realm.Color,
 			RealmCellsJson:  realm.CellsJsonb,
@@ -61,7 +64,7 @@ func ToMyRealmFromEntityResponse(realm *db.Realm) *MyRealmResponse {
 			ID:              realm.RealmID,
 			Name:            realm.Name,
 			OwnerNickname:   realm.OwnerNickname,
-			CapitalNumber:   realm.CapitalNumber,
+			Capitals:        realm.Capitals,
 			PoliticalEntity: realm.PoliticalEntity,
 			Color:           realm.Color,
 		},
@@ -78,7 +81,7 @@ func ToTheOthersRealmsResponse(realm *db.FindAllRealmsWithJsonExcludeMeRow) *Rea
 		ID:              realm.RealmID,
 		Name:            realm.Name,
 		OwnerNickname:   realm.OwnerNickname,
-		CapitalNumber:   realm.CapitalNumber,
+		Capitals:        realm.Capitals,
 		PoliticalEntity: realm.PoliticalEntity,
 		Color:           realm.Color,
 		RealmCellsJson:  realm.CellsJsonb,

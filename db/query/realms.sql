@@ -3,7 +3,6 @@ INSERT INTO realms (
     name,
     owner_id,
     owner_nickname,
-    capital_number,
     political_entity,
     color,
     population_growth_rate,
@@ -11,7 +10,7 @@ INSERT INTO realms (
     census_at,
     tax_collection_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 ) RETURNING *;
 
 -- name: FindRealmWithJson :one
@@ -25,7 +24,7 @@ population_growth_rate,
 state_coffers, 
 census_at, 
 tax_collection_at,
-capital_number,
+capitals,
 J.cells_jsonb
 FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
@@ -37,7 +36,7 @@ SELECT
 realm_id, 
 name, 
 owner_nickname, 
-capital_number, 
+capitals, 
 political_entity, 
 color,
 J.cells_jsonb
@@ -77,3 +76,23 @@ SELECT R.realm_id, name, cell_number FROM realms AS R
 LEFT JOIN sectors AS S
 ON R.realm_id = S.realm_id AND S.cell_number = $2
 WHERE R.owner_id = $1;
+
+-- name: FindRealmAndSectorCount :one
+SELECT COUNT(S) AS sector_count, R.* FROM realms AS R
+LEFT JOIN sectors AS S
+ON R.realm_id = S.realm_id
+WHERE R.realm_id = $1;
+
+-- name: GetOurRealmLevies :many
+SELECT sqlc.embed(R), sqlc.embed(L) FROM realms AS R
+INNER JOIN levies AS L ON R.realm_id = L.realm_id
+WHERE R.realm_id = $1;
+
+-- name: RemoveRealm :exec
+DELETE FROM realms
+WHERE realm_id = $1;
+
+-- name: AddCapital :exec
+UPDATE realms
+SET capitals = array_append(capitals, sqlc.arg(capital)::int)
+WHERE realm_id = $1;

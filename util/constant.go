@@ -8,40 +8,77 @@ const (
 	DefaultMorale               = 80
 )
 
-// 행군 속도
-const (
-	SwordmanSpeed     = 4 // 검병
-	ShieldBearerSpeed = 3 // 방패병
-	ArcherSpeed       = 5 // 궁병
-	LancerSpeed       = 8 // 창기병
-	SupplyTroopSpeed  = 4 // 보급병
-)
+type unit struct {
+	Swordman     *UnitStat
+	Archer       *UnitStat
+	ShieldBearer *UnitStat
+	Lancer       *UnitStat
+	SupplyTroop  *UnitStat
+}
+type UnitStat struct {
+	Speed          int32
+	Offensive      int32
+	Defensive      int32
+	HP             int32
+	ProductionCost int32
+}
 
-// 전투력
-const (
-	SwordmanOffensive     = 13 // 검병
-	ArcherOffensive       = 10 // 궁병
-	ShieldBearerOffensive = 8  // 방패병
-	LancerOffensive       = 18 // 창기병
-	SupplyTroopOffensive  = 2  // 보급병
-)
+type ExtraStat struct {
+	AddedOffensive int32
+	AddedDefensive int32
+}
 
-// 방어력
-const (
-	SwordmanDefensive     = 6  // 검병
-	ArcherDefensive       = 4  // 궁병
-	ShieldBearerDefensive = 12 // 방패병
-	LancerDefensive       = 9  // 창기병
-	SupplyTroopDefensive  = 2  // 보급병
-)
+var unitStatInstance unit = unit{
+	// 검병
+	Swordman: &UnitStat{
+		Speed:          4,
+		Offensive:      13,
+		Defensive:      4,
+		HP:             20,
+		ProductionCost: 50,
+	},
+	// 궁병
+	Archer: &UnitStat{
+		Speed:          5,
+		Offensive:      11,
+		Defensive:      3,
+		HP:             20,
+		ProductionCost: 65,
+	},
+	// 방패병
+	ShieldBearer: &UnitStat{
+		Speed:          3,
+		Offensive:      9,
+		Defensive:      9,
+		HP:             25,
+		ProductionCost: 80,
+	},
+	// 창기병
+	Lancer: &UnitStat{
+		Speed:          8,
+		Offensive:      18,
+		Defensive:      7,
+		HP:             30,
+		ProductionCost: 105,
+	},
+	// 보급병
+	SupplyTroop: &UnitStat{
+		Speed:          4,
+		Offensive:      5,
+		Defensive:      2,
+		HP:             20,
+		ProductionCost: 30,
+	},
+}
 
-// 군사 생산 비용
+func GetUnitStat() *unit {
+	return &unitStatInstance
+}
+
+// 부대 행동
 const (
-	SwordsmanProductionCost    = 50  // 검병
-	ArcherProductionCost       = 65  // 궁병
-	ShieldBearerProductionCost = 80  // 방패병
-	LancerProductionCost       = 105 // 창기병
-	SupplyTroopProductionCost  = 30  // 보급병
+	Attack = "Attack" // 공격
+	Move   = "Move"   // 주둔지 이동
 )
 
 var PoliticalEntitySet = map[string]struct{}{
@@ -51,10 +88,12 @@ var PoliticalEntitySet = map[string]struct{}{
 	"KingdomConfederation": {}, // 왕국 연맹
 	"Empire":               {}, // 제국
 	"FeudatoryState":       {}, // 번국
+	"RestorationForces":    {}, // 부흥세력
 }
 
 const (
 	Chief    = "Chief"    // 부족장
 	Monarch  = "Monarch"  // 왕, 황제
 	Courtier = "Courtier" // 신하
+	General  = "General"  // 장군
 )

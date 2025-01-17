@@ -1,9 +1,12 @@
 package service
 
 import (
+	"database/sql"
+	"net/http"
 	"sync"
 
 	db "github.com/byeoru/kania/db/repository"
+	errors "github.com/byeoru/kania/types/error"
 	"github.com/gin-gonic/gin"
 )
 
@@ -55,7 +58,7 @@ func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32
 		}
 		arg := db.CheckCellOwnerParams{
 			RealmID: result.RealmID,
-			OwnerID: userId,
+			OwnerID: sql.NullInt64{Int64: userId, Valid: true},
 		}
 		ok, err := q.CheckCellOwner(ctx, &arg)
 		if err != nil {
@@ -66,4 +69,34 @@ func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32
 		return nil
 	})
 	return population, isOwner, err
+}
+
+func (s *SectorService) CheckOriginTargetSectorValid(ctx *gin.Context, userId int64, originSector int32, targetSector int32) error {
+	myRealmId, err := s.store.GetRealmIdByUserId(ctx, userId)
+	if err != nil {
+		return err
+	}
+	originSectorRealmId, err := s.store.GetSectorRealmId(ctx, originSector)
+	if err != nil {
+		return err
+	}
+	if !myRealmId.Valid {
+		return errors.NewTxError(http.StatusUnprocessableEntity, "부대가 소속된 국가 정보가 없습니다.")
+	}
+	// 출발지가 나의 영토인지 확인
+	if originSectorRealmId != myRealmId.Int64 {
+		return errors.NewTxError(http.StatusUnprocessableEntity, "출발지가 나의 영토가 아닙니다.")
+	}
+	targetSectorRealmId, err := s.store.GetSectorRealmId(ctx, targetSector)
+	if err != nil {
+		// 누구의 지배도 받지 않는 땅인 경우 Pass
+		if err != sql.ErrNoRows {
+			return err
+		}
+	}
+	// 공격할 섹터가 나의 영토인지 확인
+	if targetSectorRealmId == myRealmId.Int64 {
+		return errors.NewTxError(http.StatusUnprocessableEntity, "자신의 영토는 공격할 수 없습니다.")
+	}
+	return nil
 }

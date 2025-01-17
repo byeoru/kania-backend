@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
 	"sync"
 
@@ -28,34 +29,46 @@ func newRealmService(store db.Store) *RealmService {
 }
 
 func (s *RealmService) FindMyRealm(ctx *gin.Context, userId int64) (*db.FindRealmWithJsonRow, error) {
-	return s.store.FindRealmWithJson(ctx, userId)
+	id := sql.NullInt64{Int64: userId, Valid: true}
+	return s.store.FindRealmWithJson(ctx, id)
 }
 
 func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, userId int64) ([]*db.FindAllRealmsWithJsonExcludeMeRow, error) {
-	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, userId)
+	id := sql.NullInt64{Int64: userId, Valid: true}
+	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, id)
 }
 
 func (s *RealmService) RegisterRealm(
 	ctx *gin.Context,
-	realm *db.CreateRealmParams,
-	sector *db.CreateSectorParams,
+	realmArg *db.CreateRealmParams,
+	sectorArg *db.CreateSectorParams,
 ) (*db.Realm, error) {
 	var result *db.Realm
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
-		realm.Color = realm.Color[1:]
-		realm, err := q.CreateRealm(ctx, realm)
+		realmArg.Color = realmArg.Color[1:]
+		realm, err := q.CreateRealm(ctx, realmArg)
 		if err != nil {
 			return err
 		}
 
-		sector.RealmID = realm.RealmID
-		err = q.CreateSector(ctx, sector)
+		sectorArg.RealmID = realm.RealmID
+		err = q.CreateSector(ctx, sectorArg)
 		if err != nil {
 			return err
 		}
-		// TODO: 나중에 struct 만들기
-		json, err := json.Marshal(gin.H{
-			"cells": []int32{sector.CellNumber},
+
+		arg := db.AddCapitalParams{
+			RealmID: realm.RealmID,
+			Capital: sectorArg.CellNumber,
+		}
+		err = q.AddCapital(ctx, &arg)
+		if err != nil {
+			return err
+		}
+		realm.Capitals = append(realm.Capitals, sectorArg.CellNumber)
+
+		json, err := json.Marshal(map[int32]int32{
+			sectorArg.CellNumber: sectorArg.CellNumber,
 		})
 		if err != nil {
 			return err
@@ -68,8 +81,7 @@ func (s *RealmService) RegisterRealm(
 			return err
 		}
 		err = q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
-			RealmID:      realm.RealmID,
-			UserID:       realm.OwnerID,
+			UserID:       realm.OwnerID.Int64,
 			Status:       util.Chief,
 			PrivateMoney: util.DefaultPrivateMoney,
 		})
@@ -87,9 +99,18 @@ func (s *RealmService) GetDataForCensus(ctx *gin.Context, realmId int64) (*db.Ge
 }
 
 func (s *RealmService) GetMyRealmId(ctx *gin.Context, userId int64) (int64, error) {
-	return s.store.GetRealmId(ctx, userId)
+	id := sql.NullInt64{Int64: userId, Valid: true}
+	return s.store.GetRealmId(ctx, id)
 }
 
 func (s *RealmService) GetMyRealmIdFromSectorNumber(ctx *gin.Context, arg *db.GetRealmIdWithSectorParams) (*db.GetRealmIdWithSectorRow, error) {
 	return s.store.GetRealmIdWithSector(ctx, arg)
+}
+
+func (s *RealmService) GetOurRealmLevies(ctx *gin.Context, realmId int64) ([]*db.GetOurRealmLeviesRow, error) {
+	return s.store.GetOurRealmLevies(ctx, realmId)
+}
+
+func (s *RealmService) AddCapital(ctx *gin.Context, arg *db.AddCapitalParams) error {
+	return s.store.AddCapital(ctx, arg)
 }

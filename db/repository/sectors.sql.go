@@ -54,6 +54,31 @@ func (q *Queries) GetPopulation(ctx context.Context, cellNumber int32) (*GetPopu
 	return &i, err
 }
 
+const getSectorRealmId = `-- name: GetSectorRealmId :one
+SELECT realm_id FROM sectors
+WHERE cell_number = $1 LIMIT 1
+`
+
+func (q *Queries) GetSectorRealmId(ctx context.Context, cellNumber int32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getSectorRealmId, cellNumber)
+	var realm_id int64
+	err := row.Scan(&realm_id)
+	return realm_id, err
+}
+
+const getSectorRealmIdForUpdate = `-- name: GetSectorRealmIdForUpdate :one
+SELECT realm_id FROM sectors
+WHERE cell_number = $1 LIMIT 1
+FOR UPDATE
+`
+
+func (q *Queries) GetSectorRealmIdForUpdate(ctx context.Context, cellNumber int32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getSectorRealmIdForUpdate, cellNumber)
+	var realm_id int64
+	err := row.Scan(&realm_id)
+	return realm_id, err
+}
+
 const updateCensusPopulation = `-- name: UpdateCensusPopulation :exec
 UPDATE sectors 
 SET population = CEIL(population * POW(1 + $1::float, $2::float / 365.25))
@@ -68,5 +93,58 @@ type UpdateCensusPopulationParams struct {
 
 func (q *Queries) UpdateCensusPopulation(ctx context.Context, arg *UpdateCensusPopulationParams) error {
 	_, err := q.db.ExecContext(ctx, updateCensusPopulation, arg.RateOfIncrease, arg.DurationDay, arg.RealmID)
+	return err
+}
+
+const updatePopulation = `-- name: UpdatePopulation :one
+UPDATE sectors
+SET population = population - $1::int
+WHERE cell_number = $2::int AND population >= $1::int
+RETURNING population
+`
+
+type UpdatePopulationParams struct {
+	Deduction  int32 `json:"deduction"`
+	Cellnumber int32 `json:"cellnumber"`
+}
+
+func (q *Queries) UpdatePopulation(ctx context.Context, arg *UpdatePopulationParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, updatePopulation, arg.Deduction, arg.Cellnumber)
+	var population int32
+	err := row.Scan(&population)
+	return population, err
+}
+
+const updateSectorOwnership = `-- name: UpdateSectorOwnership :exec
+UPDATE sectors
+SET realm_id = $2
+WHERE cell_number = $1
+`
+
+type UpdateSectorOwnershipParams struct {
+	CellNumber int32 `json:"cell_number"`
+	RealmID    int64 `json:"realm_id"`
+}
+
+func (q *Queries) UpdateSectorOwnership(ctx context.Context, arg *UpdateSectorOwnershipParams) error {
+	_, err := q.db.ExecContext(ctx, updateSectorOwnership, arg.CellNumber, arg.RealmID)
+	return err
+}
+
+const updateSectorToIndigenous = `-- name: UpdateSectorToIndigenous :exec
+DELETE FROM sectors
+WHERE cell_number IN (
+    SELECT sectors.cell_number
+    FROM sectors
+    LEFT JOIN levies
+    ON sectors.cell_number = levies.encampment
+    WHERE sectors.realm_id = $1
+    GROUP BY sectors.cell_number
+    HAVING COUNT(levies.encampment) = 0
+)
+`
+
+func (q *Queries) UpdateSectorToIndigenous(ctx context.Context, realmID int64) error {
+	_, err := q.db.ExecContext(ctx, updateSectorToIndigenous, realmID)
 	return err
 }

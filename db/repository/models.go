@@ -5,45 +5,86 @@
 package db
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 )
 
-type Levy struct {
-	LevyID            int64     `json:"levy_id"`
-	Name              string    `json:"name"`
-	Morale            int16     `json:"morale"`
-	Encampment        int32     `json:"encampment"`
+type BattleOutcome struct {
+	LevyActionID           int64     `json:"levy_action_id"`
+	SwordmanCasualties     int32     `json:"swordman_casualties"`
+	ArcherCasualties       int32     `json:"archer_casualties"`
+	ShieldBearerCasualties int32     `json:"shield_bearer_casualties"`
+	LancerCasualties       int32     `json:"lancer_casualties"`
+	SupplyTroopCasualties  int32     `json:"supply_troop_casualties"`
+	CreatedAt              time.Time `json:"created_at"`
+}
+
+type ConqueredNation struct {
+	ConqueredNationID int64           `json:"conquered_nation_id"`
+	OwnerID           sql.NullInt64   `json:"owner_id"`
+	OwnerNickname     string          `json:"owner_nickname"`
+	CountryName       string          `json:"country_name"`
+	CellsJsonb        json.RawMessage `json:"cells_jsonb"`
+	ConqueredAt       time.Time       `json:"conquered_at"`
+	CreatedAt         time.Time       `json:"created_at"`
+}
+
+type IndigenousUnit struct {
+	SectorNumber      int32     `json:"sector_number"`
 	Swordmen          int32     `json:"swordmen"`
-	ShieldBearers     int32     `json:"shield_bearers"`
 	Archers           int32     `json:"archers"`
 	Lancers           int32     `json:"lancers"`
-	SupplyTroop       int32     `json:"supply_troop"`
-	MovementSpeed     float64   `json:"movement_speed"`
 	OffensiveStrength int32     `json:"offensive_strength"`
 	DefensiveStrength int32     `json:"defensive_strength"`
-	RealmMemberID     int64     `json:"realm_member_id"`
 	CreatedAt         time.Time `json:"created_at"`
 }
 
-type Realm struct {
-	RealmID              int64     `json:"realm_id"`
-	Name                 string    `json:"name"`
-	OwnerNickname        string    `json:"owner_nickname"`
-	OwnerID              int64     `json:"owner_id"`
-	CapitalNumber        int32     `json:"capital_number"`
-	PoliticalEntity      string    `json:"political_entity"`
-	Color                string    `json:"color"`
-	PopulationGrowthRate float64   `json:"population_growth_rate"`
-	StateCoffers         int32     `json:"state_coffers"`
-	CensusAt             time.Time `json:"census_at"`
-	TaxCollectionAt      time.Time `json:"tax_collection_at"`
+type LeviesAction struct {
+	LevyActionID         int64     `json:"levy_action_id"`
+	LevyID               int64     `json:"levy_id"`
+	OriginSector         int32     `json:"origin_sector"`
+	TargetSector         int32     `json:"target_sector"`
+	ActionType           string    `json:"action_type"`
+	Completed            bool      `json:"completed"`
+	ExpectedCompletionAt time.Time `json:"expected_completion_at"`
 	CreatedAt            time.Time `json:"created_at"`
+}
+
+type Levy struct {
+	LevyID        int64         `json:"levy_id"`
+	Stationed     bool          `json:"stationed"`
+	Name          string        `json:"name"`
+	Morale        int16         `json:"morale"`
+	Encampment    int32         `json:"encampment"`
+	Swordmen      int32         `json:"swordmen"`
+	ShieldBearers int32         `json:"shield_bearers"`
+	Archers       int32         `json:"archers"`
+	Lancers       int32         `json:"lancers"`
+	SupplyTroop   int32         `json:"supply_troop"`
+	MovementSpeed float64       `json:"movement_speed"`
+	RealmMemberID int64         `json:"realm_member_id"`
+	RealmID       sql.NullInt64 `json:"realm_id"`
+	CreatedAt     time.Time     `json:"created_at"`
+}
+
+type Realm struct {
+	RealmID              int64         `json:"realm_id"`
+	Name                 string        `json:"name"`
+	OwnerNickname        string        `json:"owner_nickname"`
+	OwnerID              sql.NullInt64 `json:"owner_id"`
+	Capitals             []int32       `json:"capitals"`
+	PoliticalEntity      string        `json:"political_entity"`
+	Color                string        `json:"color"`
+	PopulationGrowthRate float64       `json:"population_growth_rate"`
+	StateCoffers         int32         `json:"state_coffers"`
+	CensusAt             time.Time     `json:"census_at"`
+	TaxCollectionAt      time.Time     `json:"tax_collection_at"`
+	CreatedAt            time.Time     `json:"created_at"`
 }
 
 type RealmMember struct {
 	UserID       int64     `json:"user_id"`
-	RealmID      int64     `json:"realm_id"`
 	Status       string    `json:"status"`
 	PrivateMoney int32     `json:"private_money"`
 	CreatedAt    time.Time `json:"created_at"`

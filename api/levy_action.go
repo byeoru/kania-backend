@@ -25,7 +25,7 @@ type levyActionRouter struct {
 	sectorService     *service.SectorService
 }
 
-func NewLevyActionRouter(router *Api) {
+func NewLevyActionRouter(router *API) {
 	levyActionRouterInit.Do(func() {
 		levyActionRouterInstance = &levyActionRouter{
 			sectorService:     router.service.SectorService,
@@ -35,7 +35,6 @@ func NewLevyActionRouter(router *Api) {
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
 	authRoutes.POST("/api/levy_action/advance", levyActionRouterInstance.advance)
-	authRoutes.POST("/api/levy_action/:levy_action_id/battle", levyActionRouterInstance.battle)
 }
 
 func (r *levyActionRouter) advance(ctx *gin.Context) {
@@ -117,6 +116,7 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 		TargetSector: reqJson.TargetSector,
 		ActionType:   util.Attack,
 		Completed:    false,
+		StartedAt:    reqJson.StartedAt,
 		// NOTE: 현재 날짜로 test중
 		ExpectedCompletionAt: reqJson.CurrentWorldTime,
 	}
@@ -132,59 +132,4 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, &types.AttackResponse{
 		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
 	})
-}
-
-func (r *levyActionRouter) battle(ctx *gin.Context) {
-	var reqPath types.BattlePathRequest
-	if err := ctx.ShouldBindUri(&reqPath); err != nil {
-		ctx.JSON(http.StatusBadRequest, &types.BattleResponse{
-			APIResponse: types.NewAPIResponse(false, "올바르지 않은 요청 데이터입니다.", err.Error()),
-		})
-		return
-	}
-
-	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-
-	arg1 := db.FindLevyActionParams{
-		LevyActionID: reqPath.LevyActionID,
-		ActionType:   util.Attack,
-	}
-
-	levyAction, err := r.levyActionService.FindLevyAction(ctx, &arg1)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, &types.BattleResponse{
-				APIResponse: types.NewAPIResponse(false, "공격 명령 기록이 존재하지 않습니다.", err.Error()),
-			})
-			return
-		}
-		ctx.JSON(http.StatusInternalServerError, &types.BattleResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	bMyLevy, err := r.levyService.IsMyLevy(ctx, authPayload.UserId, levyAction.LevyID)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, &types.BattleResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	if !bMyLevy {
-		ctx.JSON(http.StatusForbidden, &types.BattleResponse{
-			APIResponse: types.NewAPIResponse(false, "해당 부대에 대한 권한이 없습니다.", nil),
-		})
-		return
-	}
-
-	// 현재 목표 sector에 나의 공격 이전에 적용되어야할 다른 levy action들을 조회
-	arg2 := db.FindTargetLevyActionsSortedByDateForUpdateParams{
-		Targetsectorid:       levyAction.TargetSector,
-		Expectedcompletionat: levyAction.ExpectedCompletionAt,
-	}
-
-	// ExpectedCompletionAt 이전 시간의 tatget sector에 적용되어야할 actions 모두 적용
-	err = r.levyActionService.ExecuteTargetSectorActions(ctx, &arg2, levyAction.TargetSector)
 }

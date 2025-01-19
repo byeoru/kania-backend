@@ -7,6 +7,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 type Querier interface {
@@ -16,39 +17,49 @@ type Querier interface {
 	CreateConqueredNations(ctx context.Context, arg *CreateConqueredNationsParams) error
 	CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error)
 	CreateLevyAction(ctx context.Context, arg *CreateLevyActionParams) error
+	CreateLevySurrender(ctx context.Context, arg *CreateLevySurrenderParams) error
 	CreateRealm(ctx context.Context, arg *CreateRealmParams) (*Realm, error)
 	CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error
 	CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmSectorsJsonbParams) error
 	CreateSector(ctx context.Context, arg *CreateSectorParams) error
 	CreateUser(ctx context.Context, arg *CreateUserParams) error
-	FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID sql.NullInt64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
+	FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
+	FindEncampmentLevies(ctx context.Context, arg *FindEncampmentLeviesParams) ([]*Levy, error)
 	FindIndigenousUnit(ctx context.Context, sectorNumber int32) (*IndigenousUnit, error)
 	FindLevyAction(ctx context.Context, arg *FindLevyActionParams) (*LeviesAction, error)
 	FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevyActionCountByLevyIdParams) (int64, error)
-	FindRealmAndSectorCount(ctx context.Context, realmID int64) (*FindRealmAndSectorCountRow, error)
-	FindRealmWithJson(ctx context.Context, ownerID sql.NullInt64) (*FindRealmWithJsonRow, error)
-	FindStationedLevies(ctx context.Context, encampment int32) ([]*Levy, error)
-	FindTargetLevyActionsSortedByDateForUpdate(ctx context.Context, arg *FindTargetLevyActionsSortedByDateForUpdateParams) ([]*FindTargetLevyActionsSortedByDateForUpdateRow, error)
+	FindLevyActionsBeforeDate(ctx context.Context, currentWorldTime time.Time) ([]*FindLevyActionsBeforeDateRow, error)
+	FindRealm(ctx context.Context, realmID int64) (*Realm, error)
+	FindRealmWithJson(ctx context.Context, ownerID int64) (*FindRealmWithJsonRow, error)
+	FindSectorRealmForUpdate(ctx context.Context, cellNumber int32) (*FindSectorRealmForUpdateRow, error)
 	FindUserByEmail(ctx context.Context, email string) (*User, error)
 	FindUserById(ctx context.Context, userID int64) (*User, error)
 	GetCensusAndPopulationGrowthRate(ctx context.Context, realmID int64) (*GetCensusAndPopulationGrowthRateRow, error)
+	GetNumberOfRealmSectors(ctx context.Context, realmID int64) (int64, error)
 	GetOurRealmLevies(ctx context.Context, realmID int64) ([]*GetOurRealmLeviesRow, error)
 	GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, error)
 	GetPopulation(ctx context.Context, cellNumber int32) (*GetPopulationRow, error)
-	GetRealmId(ctx context.Context, ownerID sql.NullInt64) (int64, error)
+	GetRealmId(ctx context.Context, ownerID int64) (int64, error)
 	GetRealmIdByUserId(ctx context.Context, userID int64) (sql.NullInt64, error)
 	GetRealmIdWithSector(ctx context.Context, arg *GetRealmIdWithSectorParams) (*GetRealmIdWithSectorRow, error)
 	GetSectorRealmId(ctx context.Context, cellNumber int32) (int64, error)
 	GetSectorRealmIdForUpdate(ctx context.Context, cellNumber int32) (int64, error)
 	InitIndigenousUnits(ctx context.Context) error
+	RemoveCapital(ctx context.Context, arg *RemoveCapitalParams) error
+	RemoveLevy(ctx context.Context, levyID int64) error
 	RemoveRealm(ctx context.Context, realmID int64) error
 	RemoveSectorJsonb(ctx context.Context, arg *RemoveSectorJsonbParams) error
+	RemoveStationedLevies(ctx context.Context, arg *RemoveStationedLeviesParams) error
+	TransferSectorOwnershipToAttackers(ctx context.Context, arg *TransferSectorOwnershipToAttackersParams) error
 	UpdateCensusAt(ctx context.Context, arg *UpdateCensusAtParams) error
 	UpdateCensusPopulation(ctx context.Context, arg *UpdateCensusPopulationParams) error
+	UpdateIndigenousUnits(ctx context.Context, arg *UpdateIndigenousUnitsParams) error
 	UpdateLevy(ctx context.Context, arg *UpdateLevyParams) error
 	UpdateLevyActionCompleted(ctx context.Context, arg *UpdateLevyActionCompletedParams) error
+	UpdateLevyEncampment(ctx context.Context, arg *UpdateLevyEncampmentParams) error
 	UpdateLevyStatus(ctx context.Context, arg *UpdateLevyStatusParams) error
 	UpdatePopulation(ctx context.Context, arg *UpdatePopulationParams) (int32, error)
+	UpdateRealmPoliticalEntityAndRemoveCapital(ctx context.Context, arg *UpdateRealmPoliticalEntityAndRemoveCapitalParams) error
 	UpdateSectorOwnership(ctx context.Context, arg *UpdateSectorOwnershipParams) error
 	UpdateSectorToIndigenous(ctx context.Context, realmID int64) error
 	UpdateStateCoffers(ctx context.Context, arg *UpdateStateCoffersParams) (int32, error)

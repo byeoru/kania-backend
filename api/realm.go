@@ -26,7 +26,7 @@ type realmRouter struct {
 	realmMemberService *service.RealmMemberService
 }
 
-func NewRealmRouter(router *Api) {
+func NewRealmRouter(router *API) {
 	realmRouterInit.Do(func() {
 		realmRouterInstance = &realmRouter{
 			realmService:       router.service.RealmService,
@@ -90,7 +90,7 @@ func (r *realmRouter) getMeAndOthersReams(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, &types.GetMeAndOthersReams{
 		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
 		MyRealm:     types.ToMyRealmResponse(myRealm),
-		TheOthersRealms: types.Map(theOthersRealms, func(realm *db.FindAllRealmsWithJsonExcludeMeRow) *types.RealmResponse {
+		TheOthersRealms: util.Map(theOthersRealms, func(realm *db.FindAllRealmsWithJsonExcludeMeRow) *types.RealmResponse {
 			return types.ToTheOthersRealmsResponse(realm)
 		}),
 	})
@@ -117,7 +117,7 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 
 	realmArg := db.CreateRealmParams{
 		Name:                 req.Name,
-		OwnerID:              sql.NullInt64{Int64: authPayload.UserId, Valid: true},
+		OwnerID:              authPayload.UserId,
 		OwnerNickname:        owner.Nickname,
 		PoliticalEntity:      "Tribe",
 		Color:                req.RealmColor,

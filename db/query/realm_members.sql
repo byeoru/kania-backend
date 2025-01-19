@@ -11,4 +11,5 @@ INSERT INTO realm_members (
 SELECT R.realm_id FROM realm_members AS RM
 LEFT JOIN realms as R
 ON RM.user_id = R.owner_id
-WHERE user_id = $1;
+WHERE user_id = $1
+LIMIT 1;

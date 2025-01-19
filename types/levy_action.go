@@ -6,6 +6,7 @@ type AttackJsonRequest struct {
 	OriginSector         int32     `json:"origin_sector" binding:"required,min=0"`
 	TargetSector         int32     `json:"target_sector" binding:"required,min=0"`
 	CurrentWorldTime     time.Time `json:"current_world_time" binding:"required"`
+	StartedAt            time.Time `json:"started_at" binding:"required"`
 	ExpectedCompletionAt time.Time `json:"expected_completion_at" binding:"required"`
 }
 

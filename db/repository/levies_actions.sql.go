@@ -17,10 +17,11 @@ INSERT INTO levies_actions (
    target_sector, 
    action_type,
    completed, 
+   started_at,
    expected_completion_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
-) RETURNING levy_action_id, levy_id, origin_sector, target_sector, action_type, completed, expected_completion_at, created_at
+    $1, $2, $3, $4, $5, $6, $7
+) RETURNING levy_action_id, levy_id, origin_sector, target_sector, action_type, completed, started_at, expected_completion_at, created_at
 `
 
 type CreateLevyActionParams struct {
@@ -29,6 +30,7 @@ type CreateLevyActionParams struct {
 	TargetSector         int32     `json:"target_sector"`
 	ActionType           string    `json:"action_type"`
 	Completed            bool      `json:"completed"`
+	StartedAt            time.Time `json:"started_at"`
 	ExpectedCompletionAt time.Time `json:"expected_completion_at"`
 }
 
@@ -39,14 +41,16 @@ func (q *Queries) CreateLevyAction(ctx context.Context, arg *CreateLevyActionPar
 		arg.TargetSector,
 		arg.ActionType,
 		arg.Completed,
+		arg.StartedAt,
 		arg.ExpectedCompletionAt,
 	)
 	return err
 }
 
 const findLevyAction = `-- name: FindLevyAction :one
-SELECT levy_action_id, levy_id, origin_sector, target_sector, action_type, completed, expected_completion_at, created_at FROM levies_actions
+SELECT levy_action_id, levy_id, origin_sector, target_sector, action_type, completed, started_at, expected_completion_at, created_at FROM levies_actions
 WHERE levy_action_id = $1 AND action_type = $2
+LIMIT 1
 `
 
 type FindLevyActionParams struct {
@@ -64,6 +68,7 @@ func (q *Queries) FindLevyAction(ctx context.Context, arg *FindLevyActionParams)
 		&i.TargetSector,
 		&i.ActionType,
 		&i.Completed,
+		&i.StartedAt,
 		&i.ExpectedCompletionAt,
 		&i.CreatedAt,
 	)
@@ -88,45 +93,30 @@ func (q *Queries) FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevy
 	return count, err
 }
 
-const findTargetLevyActionsSortedByDateForUpdate = `-- name: FindTargetLevyActionsSortedByDateForUpdate :many
-SELECT la.levy_action_id, la.levy_id, la.origin_sector, la.target_sector, la.action_type, la.completed, la.expected_completion_at, la.created_at, l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.realm_member_id, l.realm_id, l.created_at FROM levies_actions AS LA
+const findLevyActionsBeforeDate = `-- name: FindLevyActionsBeforeDate :many
+SELECT l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.realm_member_id, l.realm_id, l.created_at, la.levy_action_id, la.levy_id, la.origin_sector, la.target_sector, la.action_type, la.completed, la.started_at, la.expected_completion_at, la.created_at FROM levies_actions AS LA
 LEFT JOIN levies AS L
 ON LA.levy_id = L.levy_id
-WHERE LA.target_sector = $1::int 
-AND LA.expected_completion_at < $2::timestamptz
+WHERE LA.expected_completion_at <= $1::timestamptz
 AND LA.completed = false
 ORDER BY LA.expected_completion_at ASC
-FOR UPDATE OF levies_actions, levies
 `
 
-type FindTargetLevyActionsSortedByDateForUpdateParams struct {
-	Targetsectorid       int32     `json:"targetsectorid"`
-	Expectedcompletionat time.Time `json:"expectedcompletionat"`
-}
-
-type FindTargetLevyActionsSortedByDateForUpdateRow struct {
-	LeviesAction LeviesAction `json:"levies_action"`
+type FindLevyActionsBeforeDateRow struct {
 	Levy         Levy         `json:"levy"`
+	LeviesAction LeviesAction `json:"levies_action"`
 }
 
-func (q *Queries) FindTargetLevyActionsSortedByDateForUpdate(ctx context.Context, arg *FindTargetLevyActionsSortedByDateForUpdateParams) ([]*FindTargetLevyActionsSortedByDateForUpdateRow, error) {
-	rows, err := q.db.QueryContext(ctx, findTargetLevyActionsSortedByDateForUpdate, arg.Targetsectorid, arg.Expectedcompletionat)
+func (q *Queries) FindLevyActionsBeforeDate(ctx context.Context, currentWorldTime time.Time) ([]*FindLevyActionsBeforeDateRow, error) {
+	rows, err := q.db.QueryContext(ctx, findLevyActionsBeforeDate, currentWorldTime)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []*FindTargetLevyActionsSortedByDateForUpdateRow{}
+	items := []*FindLevyActionsBeforeDateRow{}
 	for rows.Next() {
-		var i FindTargetLevyActionsSortedByDateForUpdateRow
+		var i FindLevyActionsBeforeDateRow
 		if err := rows.Scan(
-			&i.LeviesAction.LevyActionID,
-			&i.LeviesAction.LevyID,
-			&i.LeviesAction.OriginSector,
-			&i.LeviesAction.TargetSector,
-			&i.LeviesAction.ActionType,
-			&i.LeviesAction.Completed,
-			&i.LeviesAction.ExpectedCompletionAt,
-			&i.LeviesAction.CreatedAt,
 			&i.Levy.LevyID,
 			&i.Levy.Stationed,
 			&i.Levy.Name,
@@ -141,6 +131,15 @@ func (q *Queries) FindTargetLevyActionsSortedByDateForUpdate(ctx context.Context
 			&i.Levy.RealmMemberID,
 			&i.Levy.RealmID,
 			&i.Levy.CreatedAt,
+			&i.LeviesAction.LevyActionID,
+			&i.LeviesAction.LevyID,
+			&i.LeviesAction.OriginSector,
+			&i.LeviesAction.TargetSector,
+			&i.LeviesAction.ActionType,
+			&i.LeviesAction.Completed,
+			&i.LeviesAction.StartedAt,
+			&i.LeviesAction.ExpectedCompletionAt,
+			&i.LeviesAction.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

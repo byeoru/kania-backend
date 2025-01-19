@@ -36,6 +36,7 @@ SELECT R.realm_id FROM realm_members AS RM
 LEFT JOIN realms as R
 ON RM.user_id = R.owner_id
 WHERE user_id = $1
+LIMIT 1
 `
 
 func (q *Queries) GetRealmIdByUserId(ctx context.Context, userID int64) (sql.NullInt64, error) {

@@ -22,7 +22,7 @@ type userRouter struct {
 	userService *service.UserService
 }
 
-func newUserRouter(router *Api) {
+func newUserRouter(router *API) {
 	userRouterInit.Do(func() {
 		userRouterInstance = &userRouter{
 			userService: router.service.UserService,

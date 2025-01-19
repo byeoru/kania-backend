@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createLevy = `-- name: CreateLevy :one
@@ -75,14 +76,18 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 	return &i, err
 }
 
-const findStationedLevies = `-- name: FindStationedLevies :many
+const findEncampmentLevies = `-- name: FindEncampmentLevies :many
 SELECT levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, realm_member_id, realm_id, created_at FROM levies
-WHERE encampment = $1 AND stationed = true
-FOR UPDATE
+WHERE realm_id = $1 AND encampment = $2
 `
 
-func (q *Queries) FindStationedLevies(ctx context.Context, encampment int32) ([]*Levy, error) {
-	rows, err := q.db.QueryContext(ctx, findStationedLevies, encampment)
+type FindEncampmentLeviesParams struct {
+	RealmID    sql.NullInt64 `json:"realm_id"`
+	Encampment int32         `json:"encampment"`
+}
+
+func (q *Queries) FindEncampmentLevies(ctx context.Context, arg *FindEncampmentLeviesParams) ([]*Levy, error) {
+	rows, err := q.db.QueryContext(ctx, findEncampmentLevies, arg.RealmID, arg.Encampment)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +127,7 @@ func (q *Queries) FindStationedLevies(ctx context.Context, encampment int32) ([]
 const getOwnerIdByLevyId = `-- name: GetOwnerIdByLevyId :one
 SELECT realm_member_id FROM levies
 WHERE levy_id = $1
+LIMIT 1
 `
 
 func (q *Queries) GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, error) {
@@ -129,6 +135,31 @@ func (q *Queries) GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, 
 	var realm_member_id int64
 	err := row.Scan(&realm_member_id)
 	return realm_member_id, err
+}
+
+const removeLevy = `-- name: RemoveLevy :exec
+DELETE FROM levies
+WHERE levy_id = $1
+`
+
+func (q *Queries) RemoveLevy(ctx context.Context, levyID int64) error {
+	_, err := q.db.ExecContext(ctx, removeLevy, levyID)
+	return err
+}
+
+const removeStationedLevies = `-- name: RemoveStationedLevies :exec
+DELETE FROM levies
+WHERE realm_id = $1 AND encampment = $2 AND stationed = true
+`
+
+type RemoveStationedLeviesParams struct {
+	RealmID    sql.NullInt64 `json:"realm_id"`
+	Encampment int32         `json:"encampment"`
+}
+
+func (q *Queries) RemoveStationedLevies(ctx context.Context, arg *RemoveStationedLeviesParams) error {
+	_, err := q.db.ExecContext(ctx, removeStationedLevies, arg.RealmID, arg.Encampment)
+	return err
 }
 
 const updateLevy = `-- name: UpdateLevy :exec
@@ -165,6 +196,22 @@ func (q *Queries) UpdateLevy(ctx context.Context, arg *UpdateLevyParams) error {
 		arg.SupplyTroop,
 		arg.MovementSpeed,
 	)
+	return err
+}
+
+const updateLevyEncampment = `-- name: UpdateLevyEncampment :exec
+UPDATE levies
+SET encampment = $2
+WHERE levy_id = $1
+`
+
+type UpdateLevyEncampmentParams struct {
+	LevyID     int64 `json:"levy_id"`
+	Encampment int32 `json:"encampment"`
+}
+
+func (q *Queries) UpdateLevyEncampment(ctx context.Context, arg *UpdateLevyEncampmentParams) error {
+	_, err := q.db.ExecContext(ctx, updateLevyEncampment, arg.LevyID, arg.Encampment)
 	return err
 }
 

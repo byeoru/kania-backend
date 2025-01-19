@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/lib/pq"
 )
 
 const createSector = `-- name: CreateSector :exec
@@ -35,6 +37,57 @@ func (q *Queries) CreateSector(ctx context.Context, arg *CreateSectorParams) err
 		arg.Population,
 	)
 	return err
+}
+
+const findSectorRealmForUpdate = `-- name: FindSectorRealmForUpdate :one
+SELECT s.cell_number, s.province_number, s.realm_id, s.population, s.created_at, r.realm_id, r.name, r.owner_nickname, r.owner_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at FROM sectors AS S
+INNER JOIN realms AS R
+ON S.realm_id = R.realm_id
+WHERE cell_number = $1
+LIMIT 1 FOR UPDATE
+`
+
+type FindSectorRealmForUpdateRow struct {
+	Sector Sector `json:"sector"`
+	Realm  Realm  `json:"realm"`
+}
+
+func (q *Queries) FindSectorRealmForUpdate(ctx context.Context, cellNumber int32) (*FindSectorRealmForUpdateRow, error) {
+	row := q.db.QueryRowContext(ctx, findSectorRealmForUpdate, cellNumber)
+	var i FindSectorRealmForUpdateRow
+	err := row.Scan(
+		&i.Sector.CellNumber,
+		&i.Sector.ProvinceNumber,
+		&i.Sector.RealmID,
+		&i.Sector.Population,
+		&i.Sector.CreatedAt,
+		&i.Realm.RealmID,
+		&i.Realm.Name,
+		&i.Realm.OwnerNickname,
+		&i.Realm.OwnerID,
+		pq.Array(&i.Realm.Capitals),
+		&i.Realm.PoliticalEntity,
+		&i.Realm.Color,
+		&i.Realm.PopulationGrowthRate,
+		&i.Realm.StateCoffers,
+		&i.Realm.CensusAt,
+		&i.Realm.TaxCollectionAt,
+		&i.Realm.CreatedAt,
+	)
+	return &i, err
+}
+
+const getNumberOfRealmSectors = `-- name: GetNumberOfRealmSectors :one
+SELECT COUNT(S) AS sector_count FROM sectors AS S
+WHERE S.realm_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetNumberOfRealmSectors(ctx context.Context, realmID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getNumberOfRealmSectors, realmID)
+	var sector_count int64
+	err := row.Scan(&sector_count)
+	return sector_count, err
 }
 
 const getPopulation = `-- name: GetPopulation :one
@@ -77,6 +130,30 @@ func (q *Queries) GetSectorRealmIdForUpdate(ctx context.Context, cellNumber int3
 	var realm_id int64
 	err := row.Scan(&realm_id)
 	return realm_id, err
+}
+
+const transferSectorOwnershipToAttackers = `-- name: TransferSectorOwnershipToAttackers :exec
+UPDATE sectors
+SET realm_id = $1::bigint
+WHERE cell_number IN (
+    SELECT sectors.cell_number
+    FROM sectors
+    LEFT JOIN levies
+    ON sectors.cell_number = levies.encampment
+    WHERE sectors.realm_id = $2::bigint
+    GROUP BY sectors.cell_number
+    HAVING COUNT(levies.encampment) = 0
+)
+`
+
+type TransferSectorOwnershipToAttackersParams struct {
+	AttackerRealmID int64 `json:"attacker_realm_id"`
+	DefenderRealmID int64 `json:"defender_realm_id"`
+}
+
+func (q *Queries) TransferSectorOwnershipToAttackers(ctx context.Context, arg *TransferSectorOwnershipToAttackersParams) error {
+	_, err := q.db.ExecContext(ctx, transferSectorOwnershipToAttackers, arg.AttackerRealmID, arg.DefenderRealmID)
+	return err
 }
 
 const updateCensusPopulation = `-- name: UpdateCensusPopulation :exec

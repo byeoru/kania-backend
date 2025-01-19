@@ -7,14 +7,16 @@ import (
 
 	"github.com/byeoru/kania/api"
 	"github.com/byeoru/kania/config"
+	"github.com/byeoru/kania/cron"
 	db "github.com/byeoru/kania/db/repository"
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/token"
 )
 
 type Cmd struct {
-	api     *api.Api
+	api     *api.API
 	service *service.Service
+	cron    *cron.Cron
 }
 
 func NewCmd(filePath string) *Cmd {
@@ -37,6 +39,7 @@ func NewCmd(filePath string) *Cmd {
 
 	c.service = service.NewService(store)
 	c.api = api.NewApi(c.service)
+	c.cron = cron.NewCron(c.service)
 	c.api.ServerStart(config.Server.Port)
 	return c
 }

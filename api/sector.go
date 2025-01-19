@@ -19,7 +19,7 @@ type SectorRouter struct {
 	sectorService *service.SectorService
 }
 
-func NewSectorRouter(router *Api) {
+func NewSectorRouter(router *API) {
 	sectorRouterInit.Do(func() {
 		sectorRouterInstance = &SectorRouter{
 			sectorService: router.service.SectorService,

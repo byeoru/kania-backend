@@ -27,3 +27,25 @@ func CalculateLevyAdvanceSpeed(levy *db.Levy) float64 {
 		levy.Lancers*unitStat.Lancer.Speed) / float64(unitCount)
 	return speed
 }
+
+func IsAnnihilated(levy *db.Levy) bool {
+	wholeCount := levy.Swordmen + levy.Archers + levy.ShieldBearers + levy.Lancers + levy.SupplyTroop
+	return wholeCount == 0
+}
+
+func Map[T any, R any](input []T, mapper func(T) R) []R {
+	result := make([]R, len(input))
+	for i, v := range input {
+		result[i] = mapper(v)
+	}
+	return result
+}
+
+func Find[T comparable](slice []T, value T) bool {
+	for _, v := range slice {
+		if v == value {
+			return true // 인덱스와 함께 true 반환
+		}
+	}
+	return false // 찾지 못했을 경우
+}

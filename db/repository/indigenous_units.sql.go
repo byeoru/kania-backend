@@ -10,8 +10,9 @@ import (
 )
 
 const findIndigenousUnit = `-- name: FindIndigenousUnit :one
-SELECT sector_number, swordmen, archers, lancers, offensive_strength, defensive_strength, created_at FROM indigenous_units
+SELECT sector_number, swordmen, archers, lancers, created_at FROM indigenous_units
 WHERE sector_number = $1
+LIMIT 1
 `
 
 func (q *Queries) FindIndigenousUnit(ctx context.Context, sectorNumber int32) (*IndigenousUnit, error) {
@@ -22,8 +23,6 @@ func (q *Queries) FindIndigenousUnit(ctx context.Context, sectorNumber int32) (*
 		&i.Swordmen,
 		&i.Archers,
 		&i.Lancers,
-		&i.OffensiveStrength,
-		&i.DefensiveStrength,
 		&i.CreatedAt,
 	)
 	return &i, err
@@ -34,9 +33,7 @@ COPY indigenous_units (
     sector_number,
     swordmen,
     archers,
-    lancers,
-    offensive_strength,
-    defensive_strength
+    lancers
 ) FROM '/var/lib/postgresql/data/indigenous_units.csv' 
 WITH DELIMITER ',' 
 CSV HEADER
@@ -44,5 +41,30 @@ CSV HEADER
 
 func (q *Queries) InitIndigenousUnits(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, initIndigenousUnits)
+	return err
+}
+
+const updateIndigenousUnits = `-- name: UpdateIndigenousUnits :exec
+UPDATE indigenous_units
+SET swordmen = $2,
+archers = $3,
+lancers = $4
+WHERE sector_number = $1
+`
+
+type UpdateIndigenousUnitsParams struct {
+	SectorNumber int32 `json:"sector_number"`
+	Swordmen     int32 `json:"swordmen"`
+	Archers      int32 `json:"archers"`
+	Lancers      int32 `json:"lancers"`
+}
+
+func (q *Queries) UpdateIndigenousUnits(ctx context.Context, arg *UpdateIndigenousUnitsParams) error {
+	_, err := q.db.ExecContext(ctx, updateIndigenousUnits,
+		arg.SectorNumber,
+		arg.Swordmen,
+		arg.Archers,
+		arg.Lancers,
+	)
 	return err
 }

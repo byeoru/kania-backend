@@ -7,7 +7,6 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 )
@@ -25,7 +24,7 @@ INSERT INTO conquered_nations (
 `
 
 type CreateConqueredNationsParams struct {
-	OwnerID       sql.NullInt64   `json:"owner_id"`
+	OwnerID       int64           `json:"owner_id"`
 	OwnerNickname string          `json:"owner_nickname"`
 	CountryName   string          `json:"country_name"`
 	CellsJsonb    json.RawMessage `json:"cells_jsonb"`

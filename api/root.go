@@ -12,13 +12,13 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type Api struct {
+type API struct {
 	engine  *gin.Engine
 	service *service.Service
 }
 
-func NewApi(service *service.Service) *Api {
-	r := &Api{
+func NewApi(service *service.Service) *API {
+	r := &API{
 		engine:  gin.New(),
 		service: service,
 	}
@@ -67,6 +67,6 @@ func NewApi(service *service.Service) *Api {
 	return r
 }
 
-func (a *Api) ServerStart(port string) error {
+func (a *API) ServerStart(port string) error {
 	return a.engine.Run(port)
 }

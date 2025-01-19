@@ -17,12 +17,8 @@ INSERT INTO levies (
 
 -- name: GetOwnerIdByLevyId :one
 SELECT realm_member_id FROM levies
-WHERE levy_id = $1;
-
--- name: FindStationedLevies :many
-SELECT * FROM levies
-WHERE encampment = $1 AND stationed = true
-FOR UPDATE;
+WHERE levy_id = $1
+LIMIT 1;
 
 -- name: UpdateLevy :exec
 UPDATE levies
@@ -39,3 +35,20 @@ WHERE levy_id = $1;
 UPDATE levies
 SET stationed = $2
 WHERE levy_id = $1;
+
+-- name: RemoveLevy :exec
+DELETE FROM levies
+WHERE levy_id = $1;
+
+-- name: UpdateLevyEncampment :exec
+UPDATE levies
+SET encampment = $2
+WHERE levy_id = $1;
+
+-- name: FindEncampmentLevies :many
+SELECT * FROM levies
+WHERE realm_id = $1 AND encampment = $2;
+
+-- name: RemoveStationedLevies :exec
+DELETE FROM levies
+WHERE realm_id = $1 AND encampment = $2 AND stationed = true;

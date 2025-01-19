@@ -16,7 +16,7 @@ type realmMemberRouter struct {
 	realmService       *service.RealmService
 }
 
-func NewRealmMemberRouter(router *Api) {
+func NewRealmMemberRouter(router *API) {
 	realmMemberRouterInit.Do(func() {
 		realmMemberRouterInstance = &realmMemberRouter{
 			realmMemberService: router.service.RealmMemberService,

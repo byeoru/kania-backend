@@ -22,7 +22,7 @@ type BattleOutcome struct {
 
 type ConqueredNation struct {
 	ConqueredNationID int64           `json:"conquered_nation_id"`
-	OwnerID           sql.NullInt64   `json:"owner_id"`
+	OwnerID           int64           `json:"owner_id"`
 	OwnerNickname     string          `json:"owner_nickname"`
 	CountryName       string          `json:"country_name"`
 	CellsJsonb        json.RawMessage `json:"cells_jsonb"`
@@ -31,13 +31,11 @@ type ConqueredNation struct {
 }
 
 type IndigenousUnit struct {
-	SectorNumber      int32     `json:"sector_number"`
-	Swordmen          int32     `json:"swordmen"`
-	Archers           int32     `json:"archers"`
-	Lancers           int32     `json:"lancers"`
-	OffensiveStrength int32     `json:"offensive_strength"`
-	DefensiveStrength int32     `json:"defensive_strength"`
-	CreatedAt         time.Time `json:"created_at"`
+	SectorNumber int32     `json:"sector_number"`
+	Swordmen     int32     `json:"swordmen"`
+	Archers      int32     `json:"archers"`
+	Lancers      int32     `json:"lancers"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type LeviesAction struct {
@@ -47,6 +45,7 @@ type LeviesAction struct {
 	TargetSector         int32     `json:"target_sector"`
 	ActionType           string    `json:"action_type"`
 	Completed            bool      `json:"completed"`
+	StartedAt            time.Time `json:"started_at"`
 	ExpectedCompletionAt time.Time `json:"expected_completion_at"`
 	CreatedAt            time.Time `json:"created_at"`
 }
@@ -68,26 +67,35 @@ type Levy struct {
 	CreatedAt     time.Time     `json:"created_at"`
 }
 
+type LevySurrender struct {
+	SurrenderReason           string    `json:"surrender_reason"`
+	SurrenderedAt             time.Time `json:"surrendered_at"`
+	SurrenderedSectorLocation int32     `json:"surrendered_sector_location"`
+	LevyID                    int64     `json:"levy_id"`
+	ReceivingRealmID          int64     `json:"receiving_realm_id"`
+}
+
 type Realm struct {
-	RealmID              int64         `json:"realm_id"`
-	Name                 string        `json:"name"`
-	OwnerNickname        string        `json:"owner_nickname"`
-	OwnerID              sql.NullInt64 `json:"owner_id"`
-	Capitals             []int32       `json:"capitals"`
-	PoliticalEntity      string        `json:"political_entity"`
-	Color                string        `json:"color"`
-	PopulationGrowthRate float64       `json:"population_growth_rate"`
-	StateCoffers         int32         `json:"state_coffers"`
-	CensusAt             time.Time     `json:"census_at"`
-	TaxCollectionAt      time.Time     `json:"tax_collection_at"`
-	CreatedAt            time.Time     `json:"created_at"`
+	RealmID              int64     `json:"realm_id"`
+	Name                 string    `json:"name"`
+	OwnerNickname        string    `json:"owner_nickname"`
+	OwnerID              int64     `json:"owner_id"`
+	Capitals             []int32   `json:"capitals"`
+	PoliticalEntity      string    `json:"political_entity"`
+	Color                string    `json:"color"`
+	PopulationGrowthRate float64   `json:"population_growth_rate"`
+	StateCoffers         int32     `json:"state_coffers"`
+	CensusAt             time.Time `json:"census_at"`
+	TaxCollectionAt      time.Time `json:"tax_collection_at"`
+	CreatedAt            time.Time `json:"created_at"`
 }
 
 type RealmMember struct {
-	UserID       int64     `json:"user_id"`
-	Status       string    `json:"status"`
-	PrivateMoney int32     `json:"private_money"`
-	CreatedAt    time.Time `json:"created_at"`
+	RealmMemberID int64     `json:"realm_member_id"`
+	UserID        int64     `json:"user_id"`
+	Status        string    `json:"status"`
+	PrivateMoney  int32     `json:"private_money"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type RealmSectorsJsonb struct {

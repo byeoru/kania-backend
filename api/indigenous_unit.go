@@ -20,7 +20,7 @@ type indigenousUnitRouter struct {
 	indigenousUnitService *service.IndigenousUnitService
 }
 
-func NewIndigenousUnitRouter(router *Api) {
+func NewIndigenousUnitRouter(router *API) {
 	indigenousUnitRouterInit.Do(func() {
 		indigenousUnitRouterInstance = &indigenousUnitRouter{
 			indigenousUnitService: router.service.IndigenousUnitService,

@@ -75,10 +75,34 @@ func GetUnitStat() *unit {
 	return &unitStatInstance
 }
 
+type AnnexResult = int8
+
+// 합병 결과
+const (
+	Annihilation        AnnexResult = iota // 멸망
+	Captured                               // 일반 점령
+	CapitalCaptured                        // 수도 함락
+	AllCapitalsCaptured                    // 모든 수도 함락
+	Error                                  // 에러
+)
+
 // 부대 행동
 const (
 	Attack = "Attack" // 공격
 	Move   = "Move"   // 주둔지 이동
+	Return = "Return" // 전투 후 복귀
+)
+
+type PoliticalEntity string
+
+const (
+	Tribe                string = "Tribe"
+	TribalConfederation  string = "TribalConfederation"
+	Kingdom              string = "Kingdom"
+	KingdomConfederation string = "KingdomConfederation"
+	Empire               string = "Empire"
+	FeudatoryState       string = "FeudatoryState"
+	RestorationForces    string = "RestorationForces"
 )
 
 var PoliticalEntitySet = map[string]struct{}{
@@ -96,4 +120,9 @@ const (
 	Monarch  = "Monarch"  // 왕, 황제
 	Courtier = "Courtier" // 신하
 	General  = "General"  // 장군
+)
+
+// 투항 이유
+const (
+	RealmAnnihilation = "RealmAnnihilation" // 국가 멸망
 )

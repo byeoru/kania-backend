@@ -58,7 +58,7 @@ func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32
 		}
 		arg := db.CheckCellOwnerParams{
 			RealmID: result.RealmID,
-			OwnerID: sql.NullInt64{Int64: userId, Valid: true},
+			OwnerID: userId,
 		}
 		ok, err := q.CheckCellOwner(ctx, &arg)
 		if err != nil {

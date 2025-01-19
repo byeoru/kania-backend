@@ -75,13 +75,8 @@ RETURNING state_coffers;
 SELECT R.realm_id, name, cell_number FROM realms AS R
 LEFT JOIN sectors AS S
 ON R.realm_id = S.realm_id AND S.cell_number = $2
-WHERE R.owner_id = $1;
-
--- name: FindRealmAndSectorCount :one
-SELECT COUNT(S) AS sector_count, R.* FROM realms AS R
-LEFT JOIN sectors AS S
-ON R.realm_id = S.realm_id
-WHERE R.realm_id = $1;
+WHERE R.owner_id = $1
+LIMIT 1;
 
 -- name: GetOurRealmLevies :many
 SELECT sqlc.embed(R), sqlc.embed(L) FROM realms AS R
@@ -96,3 +91,19 @@ WHERE realm_id = $1;
 UPDATE realms
 SET capitals = array_append(capitals, sqlc.arg(capital)::int)
 WHERE realm_id = $1;
+
+-- name: FindRealm :one
+SELECT * FROM realms
+WHERE realm_id = $1
+LIMIT 1;
+
+-- name: UpdateRealmPoliticalEntityAndRemoveCapital :exec 
+UPDATE realms
+SET political_entity = sqlc.arg(political_entity)::varchar 
+AND capitals = array_remove(capitals, sqlc.arg(remove_capital)::int)
+WHERE realm_id = sqlc.arg(realm_id)::bigint;
+
+-- name: RemoveCapital :exec
+UPDATE realms
+SET capitals = array_remove(capitals, sqlc.arg(remove_capital)::int)
+WHERE realm_id = sqlc.arg(realm_id)::bigint;

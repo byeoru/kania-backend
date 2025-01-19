@@ -5,9 +5,10 @@ INSERT INTO levies_actions (
    target_sector, 
    action_type,
    completed, 
+   started_at,
    expected_completion_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5, $6, $7
 ) RETURNING *;
 
 -- name: FindLevyActionCountByLevyId :one
@@ -17,17 +18,16 @@ LIMIT 1;
 
 -- name: FindLevyAction :one
 SELECT * FROM levies_actions
-WHERE levy_action_id = $1 AND action_type = $2;
+WHERE levy_action_id = $1 AND action_type = $2
+LIMIT 1;
 
--- name: FindTargetLevyActionsSortedByDateForUpdate :many
-SELECT sqlc.embed(LA), sqlc.embed(L) FROM levies_actions AS LA
+-- name: FindLevyActionsBeforeDate :many
+SELECT sqlc.embed(L), sqlc.embed(LA) FROM levies_actions AS LA
 LEFT JOIN levies AS L
 ON LA.levy_id = L.levy_id
-WHERE LA.target_sector = sqlc.arg(targetSectorId)::int 
-AND LA.expected_completion_at < sqlc.arg(expectedCompletionAt)::timestamptz
+WHERE LA.expected_completion_at <= sqlc.arg(current_world_time)::timestamptz
 AND LA.completed = false
-ORDER BY LA.expected_completion_at ASC
-FOR UPDATE OF levies_actions, levies;
+ORDER BY LA.expected_completion_at ASC;
 
 -- name: UpdateLevyActionCompleted :exec
 UPDATE levies_actions

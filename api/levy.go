@@ -25,7 +25,7 @@ type levyRouter struct {
 	realmService *service.RealmService
 }
 
-func NewLevyRouter(router *Api) {
+func NewLevyRouter(router *API) {
 	levyRouterInit.Do(func() {
 		levyRouterInstance = &levyRouter{
 			levyService:  router.service.LevyService,
@@ -48,7 +48,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
 	arg1 := db.GetRealmIdWithSectorParams{
-		OwnerID:    sql.NullInt64{Int64: authPayload.UserId, Valid: true},
+		OwnerID:    authPayload.UserId,
 		CellNumber: req.Encampment,
 	}
 

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"encoding/json"
 	"sync"
 
@@ -29,13 +28,11 @@ func newRealmService(store db.Store) *RealmService {
 }
 
 func (s *RealmService) FindMyRealm(ctx *gin.Context, userId int64) (*db.FindRealmWithJsonRow, error) {
-	id := sql.NullInt64{Int64: userId, Valid: true}
-	return s.store.FindRealmWithJson(ctx, id)
+	return s.store.FindRealmWithJson(ctx, userId)
 }
 
 func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, userId int64) ([]*db.FindAllRealmsWithJsonExcludeMeRow, error) {
-	id := sql.NullInt64{Int64: userId, Valid: true}
-	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, id)
+	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, userId)
 }
 
 func (s *RealmService) RegisterRealm(
@@ -81,7 +78,7 @@ func (s *RealmService) RegisterRealm(
 			return err
 		}
 		err = q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
-			UserID:       realm.OwnerID.Int64,
+			UserID:       realm.OwnerID,
 			Status:       util.Chief,
 			PrivateMoney: util.DefaultPrivateMoney,
 		})
@@ -99,8 +96,7 @@ func (s *RealmService) GetDataForCensus(ctx *gin.Context, realmId int64) (*db.Ge
 }
 
 func (s *RealmService) GetMyRealmId(ctx *gin.Context, userId int64) (int64, error) {
-	id := sql.NullInt64{Int64: userId, Valid: true}
-	return s.store.GetRealmId(ctx, id)
+	return s.store.GetRealmId(ctx, userId)
 }
 
 func (s *RealmService) GetMyRealmIdFromSectorNumber(ctx *gin.Context, arg *db.GetRealmIdWithSectorParams) (*db.GetRealmIdWithSectorRow, error) {

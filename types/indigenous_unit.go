@@ -22,11 +22,9 @@ type indigenousUnitResponse struct {
 
 func NewIndigenousUnitResponse(entity *db.IndigenousUnit) *indigenousUnitResponse {
 	return &indigenousUnitResponse{
-		SectorNumber:      entity.SectorNumber,
-		Swordmen:          entity.Swordmen,
-		Archers:           entity.Archers,
-		Lancers:           entity.Lancers,
-		OffensiveStrength: entity.OffensiveStrength,
-		DefensiveStrength: entity.DefensiveStrength,
+		SectorNumber: entity.SectorNumber,
+		Swordmen:     entity.Swordmen,
+		Archers:      entity.Archers,
+		Lancers:      entity.Lancers,
 	}
 }

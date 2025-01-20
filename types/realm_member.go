@@ -12,7 +12,7 @@ type GetRealmMembersLeviesResponse struct {
 }
 
 type LevyAffiliation struct {
-	UserID  int64 `json:"user_id"`
+	RmID    int64 `json:"rm_id"`
 	RealmID int64 `json:"realm_id"`
 }
 
@@ -29,13 +29,13 @@ func ToRealmLevies(rows []*db.GetOurRealmLeviesRow) []*RealmLeviesResponse {
 	// SQL 결과 처리
 	for _, row := range rows {
 		// 맵 키 생성 (UserID와 RealmID를 결합)
-		key := fmt.Sprintf("%d:%d", row.Realm.RealmID, row.Levy.RealmMemberID)
+		key := fmt.Sprintf("%d:%d", row.Realm.RealmID, row.Levy.RmID)
 
 		// Set에 없으면 ID 추가하고 초기화
 		if _, exists := result[key]; !exists {
 			result[key] = &RealmLeviesResponse{
 				LevyAffiliation: &LevyAffiliation{
-					UserID:  row.Levy.RealmMemberID,
+					RmID:    row.Levy.RmID,
 					RealmID: row.Realm.RealmID,
 				},
 			}

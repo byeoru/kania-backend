@@ -48,7 +48,7 @@ func (s *SectorService) ApplyCensus(ctx *gin.Context, realmArg *db.UpdateCensusA
 	})
 }
 
-func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32, userId int64) (int32, bool, error) {
+func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32, rmId int64) (int32, bool, error) {
 	var population int32
 	var isOwner bool
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
@@ -58,7 +58,7 @@ func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32
 		}
 		arg := db.CheckCellOwnerParams{
 			RealmID: result.RealmID,
-			OwnerID: userId,
+			RmID:    rmId,
 		}
 		ok, err := q.CheckCellOwner(ctx, &arg)
 		if err != nil {
@@ -71,8 +71,8 @@ func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32
 	return population, isOwner, err
 }
 
-func (s *SectorService) CheckOriginTargetSectorValid(ctx *gin.Context, userId int64, originSector int32, targetSector int32) error {
-	myRealmId, err := s.store.GetRealmIdByUserId(ctx, userId)
+func (s *SectorService) CheckOriginTargetSectorValid(ctx *gin.Context, rmId int64, originSector int32, targetSector int32) error {
+	myRealmId, err := s.store.GetRealmIdByRmId(ctx, rmId)
 	if err != nil {
 		return err
 	}

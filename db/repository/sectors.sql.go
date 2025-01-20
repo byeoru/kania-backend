@@ -16,9 +16,10 @@ INSERT INTO sectors (
     cell_number,
     province_number,
     realm_id,
+    rm_id,
     population
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 `
 
@@ -26,6 +27,7 @@ type CreateSectorParams struct {
 	CellNumber     int32 `json:"cell_number"`
 	ProvinceNumber int32 `json:"province_number"`
 	RealmID        int64 `json:"realm_id"`
+	RmID           int64 `json:"rm_id"`
 	Population     int32 `json:"population"`
 }
 
@@ -34,13 +36,14 @@ func (q *Queries) CreateSector(ctx context.Context, arg *CreateSectorParams) err
 		arg.CellNumber,
 		arg.ProvinceNumber,
 		arg.RealmID,
+		arg.RmID,
 		arg.Population,
 	)
 	return err
 }
 
 const findSectorRealmForUpdate = `-- name: FindSectorRealmForUpdate :one
-SELECT s.cell_number, s.province_number, s.realm_id, s.population, s.created_at, r.realm_id, r.name, r.owner_nickname, r.owner_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at FROM sectors AS S
+SELECT s.cell_number, s.province_number, s.realm_id, s.rm_id, s.population, s.created_at, r.realm_id, r.name, r.owner_nickname, r.rm_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at FROM sectors AS S
 INNER JOIN realms AS R
 ON S.realm_id = R.realm_id
 WHERE cell_number = $1
@@ -59,12 +62,13 @@ func (q *Queries) FindSectorRealmForUpdate(ctx context.Context, cellNumber int32
 		&i.Sector.CellNumber,
 		&i.Sector.ProvinceNumber,
 		&i.Sector.RealmID,
+		&i.Sector.RmID,
 		&i.Sector.Population,
 		&i.Sector.CreatedAt,
 		&i.Realm.RealmID,
 		&i.Realm.Name,
 		&i.Realm.OwnerNickname,
-		&i.Realm.OwnerID,
+		&i.Realm.RmID,
 		pq.Array(&i.Realm.Capitals),
 		&i.Realm.PoliticalEntity,
 		&i.Realm.Color,
@@ -195,16 +199,18 @@ func (q *Queries) UpdatePopulation(ctx context.Context, arg *UpdatePopulationPar
 const updateSectorOwnership = `-- name: UpdateSectorOwnership :exec
 UPDATE sectors
 SET realm_id = $2
+AND rm_id = $3
 WHERE cell_number = $1
 `
 
 type UpdateSectorOwnershipParams struct {
 	CellNumber int32 `json:"cell_number"`
 	RealmID    int64 `json:"realm_id"`
+	RmID       int64 `json:"rm_id"`
 }
 
 func (q *Queries) UpdateSectorOwnership(ctx context.Context, arg *UpdateSectorOwnershipParams) error {
-	_, err := q.db.ExecContext(ctx, updateSectorOwnership, arg.CellNumber, arg.RealmID)
+	_, err := q.db.ExecContext(ctx, updateSectorOwnership, arg.CellNumber, arg.RealmID, arg.RmID)
 	return err
 }
 

@@ -3,9 +3,10 @@ INSERT INTO sectors (
     cell_number,
     province_number,
     realm_id,
+    rm_id,
     population
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 );
 
 -- name: UpdatePopulation :one
@@ -35,6 +36,7 @@ FOR UPDATE;
 -- name: UpdateSectorOwnership :exec
 UPDATE sectors
 SET realm_id = $2
+AND rm_id = $3
 WHERE cell_number = $1;
 
 -- name: UpdateSectorToIndigenous :exec

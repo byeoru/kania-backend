@@ -10,13 +10,13 @@ INSERT INTO levies (
     lancers,
     supply_troop,
     movement_speed,
-    realm_member_id
+    rm_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 ) RETURNING *;
 
 -- name: GetOwnerIdByLevyId :one
-SELECT realm_member_id FROM levies
+SELECT rm_id FROM levies
 WHERE levy_id = $1
 LIMIT 1;
 

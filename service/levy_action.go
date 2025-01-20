@@ -57,7 +57,7 @@ func (s *LevyActionService) FindLevyActionByLevyId(ctx *gin.Context, arg *db.Fin
 	return s.store.FindLevyActionCountByLevyId(ctx, arg)
 }
 
-func (s *LevyActionService) ExecuteLevyActions(ctx *context.Context, currentWorldTime time.Time) error {
+func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, currentWorldTime time.Time) error {
 	actions, err := s.store.FindLevyActionsBeforeDate(*ctx, currentWorldTime)
 	if err != nil {
 		return err
@@ -348,7 +348,14 @@ func annexSectorOfRealm(
 	}
 
 	// sector 소유권 이전
-	err = changeSectorOwnership(*ctx, q, action.LeviesAction.TargetSector, defenderRealm.RealmID, action.Levy.RealmID.Int64)
+	err = changeSectorOwnership(
+		*ctx,
+		q,
+		action.LeviesAction.TargetSector,
+		defenderRealm.RealmID,
+		action.Levy.RealmID.Int64,
+		action.Levy.RmID,
+	)
 	if err != nil {
 		return util.Error, err
 	}
@@ -366,6 +373,7 @@ func annexSectorOfIndigenousLand(
 		CellNumber:     action.LeviesAction.TargetSector,
 		ProvinceNumber: 1,
 		RealmID:        action.Levy.RealmID.Int64,
+		RmID:           action.Levy.RmID,
 		Population:     1000,
 	}
 
@@ -394,10 +402,12 @@ func changeSectorOwnership(
 	sectorNumber int32,
 	prevOwnerRealmId int64,
 	newOwnerRealmId int64,
+	newRmId int64,
 ) error {
 	arg1 := db.UpdateSectorOwnershipParams{
 		CellNumber: sectorNumber,
 		RealmID:    newOwnerRealmId,
+		RmID:       newRmId,
 	}
 	// sector 소유권 이전
 	err := q.UpdateSectorOwnership(ctx, &arg1)

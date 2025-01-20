@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
 	"sync"
 
@@ -39,9 +40,21 @@ func (s *RealmService) RegisterRealm(
 	ctx *gin.Context,
 	realmArg *db.CreateRealmParams,
 	sectorArg *db.CreateSectorParams,
+	userId int64,
 ) (*db.Realm, error) {
 	var result *db.Realm
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
+		rmId, err := q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
+			UserID:       sql.NullInt64{Int64: userId, Valid: true},
+			Status:       util.Chief,
+			PrivateMoney: util.DefaultPrivateMoney,
+		})
+		if err != nil {
+			return err
+		}
+
+		realmArg.RmID = rmId
+
 		realmArg.Color = realmArg.Color[1:]
 		realm, err := q.CreateRealm(ctx, realmArg)
 		if err != nil {
@@ -49,6 +62,7 @@ func (s *RealmService) RegisterRealm(
 		}
 
 		sectorArg.RealmID = realm.RealmID
+		sectorArg.RmID = rmId
 		err = q.CreateSector(ctx, sectorArg)
 		if err != nil {
 			return err
@@ -73,14 +87,6 @@ func (s *RealmService) RegisterRealm(
 		err = q.CreateRealmSectorsJsonb(ctx, &db.CreateRealmSectorsJsonbParams{
 			RealmSectorsJsonbID: realm.RealmID,
 			CellsJsonb:          json,
-		})
-		if err != nil {
-			return err
-		}
-		err = q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
-			UserID:       realm.OwnerID,
-			Status:       util.Chief,
-			PrivateMoney: util.DefaultPrivateMoney,
 		})
 		if err != nil {
 			return err

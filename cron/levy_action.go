@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	db "github.com/byeoru/kania/db/repository"
 	"github.com/byeoru/kania/service"
 )
 
@@ -14,7 +15,8 @@ var (
 )
 
 type LevyActionCron struct {
-	levyActionService *service.LevyActionService
+	levyActionService      *service.LevyActionService
+	worldTimeRecordService *service.WorldTimeRecordService
 }
 
 func NewLevyActionCron(cron *Cron) *LevyActionCron {
@@ -26,6 +28,13 @@ func NewLevyActionCron(cron *Cron) *LevyActionCron {
 	return LevyActionCronInstance
 }
 
-func (c *LevyActionCron) ExecuteLevyAction(ctx context.Context, worldTime time.Time) {
-
+func (c *LevyActionCron) ExecuteLevyAction(ctx *context.Context, worldTime time.Time) {
+	err := c.levyActionService.ExecuteCronLevyActions(ctx, worldTime)
+	if err != nil {
+		arg := db.CreateWorldTimeRecordParams{
+			StopReason:     err.Error(),
+			WorldStoppedAt: worldTime,
+		}
+		c.worldTimeRecordService.CreateWorldTimeRecord(ctx, &arg)
+	}
 }

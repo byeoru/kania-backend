@@ -12,25 +12,27 @@ var (
 )
 
 type Service struct {
-	UserService           *UserService
-	RealmService          *RealmService
-	SectorService         *SectorService
-	RealmMemberService    *RealmMemberService
-	LevyService           *LevyService
-	LevyActionService     *LevyActionService
-	IndigenousUnitService *IndigenousUnitService
+	UserService            *UserService
+	RealmService           *RealmService
+	SectorService          *SectorService
+	RealmMemberService     *RealmMemberService
+	LevyService            *LevyService
+	LevyActionService      *LevyActionService
+	IndigenousUnitService  *IndigenousUnitService
+	WorldTimeRecordService *WorldTimeRecordService
 }
 
 func NewService(store db.Store) *Service {
 	serviceInit.Do(func() {
 		serviceInstance = &Service{
-			UserService:           newUserService(store),
-			RealmService:          newRealmService(store),
-			SectorService:         newSectorService(store),
-			RealmMemberService:    newRealmMemberService(store),
-			LevyService:           newLevyService(store),
-			LevyActionService:     newLevyActionService(store),
-			IndigenousUnitService: newIndigenousUnitService(store),
+			UserService:            newUserService(store),
+			RealmService:           newRealmService(store),
+			SectorService:          newSectorService(store),
+			RealmMemberService:     newRealmMemberService(store),
+			LevyService:            newLevyService(store),
+			LevyActionService:      newLevyActionService(store),
+			IndigenousUnitService:  newIndigenousUnitService(store),
+			WorldTimeRecordService: newWorldTimeRecordService(store),
 		}
 	})
 	return serviceInstance

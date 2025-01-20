@@ -94,7 +94,7 @@ func (q *Queries) FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevy
 }
 
 const findLevyActionsBeforeDate = `-- name: FindLevyActionsBeforeDate :many
-SELECT l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.realm_member_id, l.realm_id, l.created_at, la.levy_action_id, la.levy_id, la.origin_sector, la.target_sector, la.action_type, la.completed, la.started_at, la.expected_completion_at, la.created_at FROM levies_actions AS LA
+SELECT l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.rm_id, l.realm_id, l.created_at, la.levy_action_id, la.levy_id, la.origin_sector, la.target_sector, la.action_type, la.completed, la.started_at, la.expected_completion_at, la.created_at FROM levies_actions AS LA
 LEFT JOIN levies AS L
 ON LA.levy_id = L.levy_id
 WHERE LA.expected_completion_at <= $1::timestamptz
@@ -128,7 +128,7 @@ func (q *Queries) FindLevyActionsBeforeDate(ctx context.Context, currentWorldTim
 			&i.Levy.Lancers,
 			&i.Levy.SupplyTroop,
 			&i.Levy.MovementSpeed,
-			&i.Levy.RealmMemberID,
+			&i.Levy.RmID,
 			&i.Levy.RealmID,
 			&i.Levy.CreatedAt,
 			&i.LeviesAction.LevyActionID,

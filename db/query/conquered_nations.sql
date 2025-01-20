@@ -1,6 +1,6 @@
 -- name: CreateConqueredNations :exec
 INSERT INTO conquered_nations (
-   owner_id,
+   rm_id,
    owner_nickname,
    country_name,
    cells_jsonb,

@@ -117,7 +117,6 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 
 	realmArg := db.CreateRealmParams{
 		Name:                 req.Name,
-		OwnerID:              authPayload.UserId,
 		OwnerNickname:        owner.Nickname,
 		PoliticalEntity:      "Tribe",
 		Color:                req.RealmColor,
@@ -132,7 +131,7 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 		Population:     req.Population,
 	}
 
-	result, err := r.realmService.RegisterRealm(ctx, &realmArg, &sectorArg)
+	result, err := r.realmService.RegisterRealm(ctx, &realmArg, &sectorArg, authPayload.UserId)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.EstablishARealmResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),

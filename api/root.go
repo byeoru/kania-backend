@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"log"
 	"net/http"
 
@@ -46,11 +45,11 @@ func NewApi(service *service.Service) *API {
 	NewIndigenousUnitRouter(r)
 
 	// 토착 세력 병력 초기화
-	ctx := context.Background()
-	err := r.service.IndigenousUnitService.InitIndigenousUnit(&ctx)
-	if err != nil {
-		log.Fatalf("Failed to initialize indigenous unit: %v", err)
-	}
+	// ctx := context.Background()
+	// err := r.service.IndigenousUnitService.InitIndigenousUnit(&ctx)
+	// if err != nil {
+	// 	log.Fatalf("Failed to initialize indigenous unit: %v", err)
+	// }
 
 	r.engine.LoadHTMLFiles("static/index.html")
 	r.engine.Static("/assets", "static/assets")

@@ -34,17 +34,17 @@ const checkCellOwner = `-- name: CheckCellOwner :one
 SELECT EXISTS (
     SELECT 1
     FROM realms
-    WHERE realm_id = $1 AND owner_id = $2
+    WHERE realm_id = $1 AND rm_id = $2
 )
 `
 
 type CheckCellOwnerParams struct {
 	RealmID int64 `json:"realm_id"`
-	OwnerID int64 `json:"owner_id"`
+	RmID    int64 `json:"rm_id"`
 }
 
 func (q *Queries) CheckCellOwner(ctx context.Context, arg *CheckCellOwnerParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, checkCellOwner, arg.RealmID, arg.OwnerID)
+	row := q.db.QueryRowContext(ctx, checkCellOwner, arg.RealmID, arg.RmID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -53,7 +53,7 @@ func (q *Queries) CheckCellOwner(ctx context.Context, arg *CheckCellOwnerParams)
 const createRealm = `-- name: CreateRealm :one
 INSERT INTO realms (
     name,
-    owner_id,
+    rm_id,
     owner_nickname,
     political_entity,
     color,
@@ -63,12 +63,12 @@ INSERT INTO realms (
     tax_collection_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9
-) RETURNING realm_id, name, owner_nickname, owner_id, capitals, political_entity, color, population_growth_rate, state_coffers, census_at, tax_collection_at, created_at
+) RETURNING realm_id, name, owner_nickname, rm_id, capitals, political_entity, color, population_growth_rate, state_coffers, census_at, tax_collection_at, created_at
 `
 
 type CreateRealmParams struct {
 	Name                 string    `json:"name"`
-	OwnerID              int64     `json:"owner_id"`
+	RmID                 int64     `json:"rm_id"`
 	OwnerNickname        string    `json:"owner_nickname"`
 	PoliticalEntity      string    `json:"political_entity"`
 	Color                string    `json:"color"`
@@ -81,7 +81,7 @@ type CreateRealmParams struct {
 func (q *Queries) CreateRealm(ctx context.Context, arg *CreateRealmParams) (*Realm, error) {
 	row := q.db.QueryRowContext(ctx, createRealm,
 		arg.Name,
-		arg.OwnerID,
+		arg.RmID,
 		arg.OwnerNickname,
 		arg.PoliticalEntity,
 		arg.Color,
@@ -95,7 +95,7 @@ func (q *Queries) CreateRealm(ctx context.Context, arg *CreateRealmParams) (*Rea
 		&i.RealmID,
 		&i.Name,
 		&i.OwnerNickname,
-		&i.OwnerID,
+		&i.RmID,
 		pq.Array(&i.Capitals),
 		&i.PoliticalEntity,
 		&i.Color,
@@ -120,7 +120,7 @@ J.cells_jsonb
 FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
 ON R.realm_id = J.realm_sectors_jsonb_id
-WHERE R.owner_id != $1
+WHERE R.rm_id != $1
 `
 
 type FindAllRealmsWithJsonExcludeMeRow struct {
@@ -133,8 +133,8 @@ type FindAllRealmsWithJsonExcludeMeRow struct {
 	CellsJsonb      pqtype.NullRawMessage `json:"cells_jsonb"`
 }
 
-func (q *Queries) FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error) {
-	rows, err := q.db.QueryContext(ctx, findAllRealmsWithJsonExcludeMe, ownerID)
+func (q *Queries) FindAllRealmsWithJsonExcludeMe(ctx context.Context, rmID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error) {
+	rows, err := q.db.QueryContext(ctx, findAllRealmsWithJsonExcludeMe, rmID)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (q *Queries) FindAllRealmsWithJsonExcludeMe(ctx context.Context, ownerID in
 }
 
 const findRealm = `-- name: FindRealm :one
-SELECT realm_id, name, owner_nickname, owner_id, capitals, political_entity, color, population_growth_rate, state_coffers, census_at, tax_collection_at, created_at FROM realms
+SELECT realm_id, name, owner_nickname, rm_id, capitals, political_entity, color, population_growth_rate, state_coffers, census_at, tax_collection_at, created_at FROM realms
 WHERE realm_id = $1
 LIMIT 1
 `
@@ -177,7 +177,7 @@ func (q *Queries) FindRealm(ctx context.Context, realmID int64) (*Realm, error) 
 		&i.RealmID,
 		&i.Name,
 		&i.OwnerNickname,
-		&i.OwnerID,
+		&i.RmID,
 		pq.Array(&i.Capitals),
 		&i.PoliticalEntity,
 		&i.Color,
@@ -206,7 +206,7 @@ J.cells_jsonb
 FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
 ON R.realm_id = J.realm_sectors_jsonb_id 
-WHERE R.owner_id = $1 LIMIT 1
+WHERE R.rm_id = $1 LIMIT 1
 `
 
 type FindRealmWithJsonRow struct {
@@ -223,8 +223,8 @@ type FindRealmWithJsonRow struct {
 	CellsJsonb           pqtype.NullRawMessage `json:"cells_jsonb"`
 }
 
-func (q *Queries) FindRealmWithJson(ctx context.Context, ownerID int64) (*FindRealmWithJsonRow, error) {
-	row := q.db.QueryRowContext(ctx, findRealmWithJson, ownerID)
+func (q *Queries) FindRealmWithJson(ctx context.Context, rmID int64) (*FindRealmWithJsonRow, error) {
+	row := q.db.QueryRowContext(ctx, findRealmWithJson, rmID)
 	var i FindRealmWithJsonRow
 	err := row.Scan(
 		&i.RealmID,
@@ -260,7 +260,7 @@ func (q *Queries) GetCensusAndPopulationGrowthRate(ctx context.Context, realmID 
 }
 
 const getOurRealmLevies = `-- name: GetOurRealmLevies :many
-SELECT r.realm_id, r.name, r.owner_nickname, r.owner_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at, l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.realm_member_id, l.realm_id, l.created_at FROM realms AS R
+SELECT r.realm_id, r.name, r.owner_nickname, r.rm_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at, l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.rm_id, l.realm_id, l.created_at FROM realms AS R
 INNER JOIN levies AS L ON R.realm_id = L.realm_id
 WHERE R.realm_id = $1
 `
@@ -283,7 +283,7 @@ func (q *Queries) GetOurRealmLevies(ctx context.Context, realmID int64) ([]*GetO
 			&i.Realm.RealmID,
 			&i.Realm.Name,
 			&i.Realm.OwnerNickname,
-			&i.Realm.OwnerID,
+			&i.Realm.RmID,
 			pq.Array(&i.Realm.Capitals),
 			&i.Realm.PoliticalEntity,
 			&i.Realm.Color,
@@ -303,7 +303,7 @@ func (q *Queries) GetOurRealmLevies(ctx context.Context, realmID int64) ([]*GetO
 			&i.Levy.Lancers,
 			&i.Levy.SupplyTroop,
 			&i.Levy.MovementSpeed,
-			&i.Levy.RealmMemberID,
+			&i.Levy.RmID,
 			&i.Levy.RealmID,
 			&i.Levy.CreatedAt,
 		); err != nil {
@@ -322,11 +322,11 @@ func (q *Queries) GetOurRealmLevies(ctx context.Context, realmID int64) ([]*GetO
 
 const getRealmId = `-- name: GetRealmId :one
 SELECT realm_id FROM realms
-WHERE owner_id = $1
+WHERE rm_id = $1
 `
 
-func (q *Queries) GetRealmId(ctx context.Context, ownerID int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getRealmId, ownerID)
+func (q *Queries) GetRealmId(ctx context.Context, rmID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getRealmId, rmID)
 	var realm_id int64
 	err := row.Scan(&realm_id)
 	return realm_id, err
@@ -336,12 +336,12 @@ const getRealmIdWithSector = `-- name: GetRealmIdWithSector :one
 SELECT R.realm_id, name, cell_number FROM realms AS R
 LEFT JOIN sectors AS S
 ON R.realm_id = S.realm_id AND S.cell_number = $2
-WHERE R.owner_id = $1
+WHERE R.rm_id = $1
 LIMIT 1
 `
 
 type GetRealmIdWithSectorParams struct {
-	OwnerID    int64 `json:"owner_id"`
+	RmID       int64 `json:"rm_id"`
 	CellNumber int32 `json:"cell_number"`
 }
 
@@ -352,7 +352,7 @@ type GetRealmIdWithSectorRow struct {
 }
 
 func (q *Queries) GetRealmIdWithSector(ctx context.Context, arg *GetRealmIdWithSectorParams) (*GetRealmIdWithSectorRow, error) {
-	row := q.db.QueryRowContext(ctx, getRealmIdWithSector, arg.OwnerID, arg.CellNumber)
+	row := q.db.QueryRowContext(ctx, getRealmIdWithSector, arg.RmID, arg.CellNumber)
 	var i GetRealmIdWithSectorRow
 	err := row.Scan(&i.RealmID, &i.Name, &i.CellNumber)
 	return &i, err

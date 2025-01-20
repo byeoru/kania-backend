@@ -10,37 +10,59 @@ import (
 	"database/sql"
 )
 
-const createRealmMember = `-- name: CreateRealmMember :exec
+const createRealmMember = `-- name: CreateRealmMember :one
 INSERT INTO realm_members (
     user_id,
     status,
     private_money
 ) VALUES (
     $1, $2, $3
-)
+) RETURNING realm_member_id
 `
 
 type CreateRealmMemberParams struct {
-	UserID       int64  `json:"user_id"`
-	Status       string `json:"status"`
-	PrivateMoney int32  `json:"private_money"`
+	UserID       sql.NullInt64 `json:"user_id"`
+	Status       string        `json:"status"`
+	PrivateMoney int32         `json:"private_money"`
 }
 
-func (q *Queries) CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error {
-	_, err := q.db.ExecContext(ctx, createRealmMember, arg.UserID, arg.Status, arg.PrivateMoney)
-	return err
+func (q *Queries) CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createRealmMember, arg.UserID, arg.Status, arg.PrivateMoney)
+	var realm_member_id int64
+	err := row.Scan(&realm_member_id)
+	return realm_member_id, err
 }
 
-const getRealmIdByUserId = `-- name: GetRealmIdByUserId :one
+const getMyRmIdOfSector = `-- name: GetMyRmIdOfSector :one
+SELECT S.rm_id
+FROM realm_members AS RM
+INNER JOIN sectors AS S
+ON RM.realm_member_id = S.rm_id AND cell_number = $2
+WHERE user_id = $1
+`
+
+type GetMyRmIdOfSectorParams struct {
+	UserID     sql.NullInt64 `json:"user_id"`
+	CellNumber int32         `json:"cell_number"`
+}
+
+func (q *Queries) GetMyRmIdOfSector(ctx context.Context, arg *GetMyRmIdOfSectorParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getMyRmIdOfSector, arg.UserID, arg.CellNumber)
+	var rm_id int64
+	err := row.Scan(&rm_id)
+	return rm_id, err
+}
+
+const getRealmIdByRmId = `-- name: GetRealmIdByRmId :one
 SELECT R.realm_id FROM realm_members AS RM
 LEFT JOIN realms as R
-ON RM.user_id = R.owner_id
-WHERE user_id = $1
+ON RM.realm_member_id = R.rm_id
+WHERE rm_id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetRealmIdByUserId(ctx context.Context, userID int64) (sql.NullInt64, error) {
-	row := q.db.QueryRowContext(ctx, getRealmIdByUserId, userID)
+func (q *Queries) GetRealmIdByRmId(ctx context.Context, rmID int64) (sql.NullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getRealmIdByRmId, rmID)
 	var realm_id sql.NullInt64
 	err := row.Scan(&realm_id)
 	return realm_id, err

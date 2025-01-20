@@ -10,7 +10,7 @@ CREATE TABLE "realms" (
   "realm_id" bigserial PRIMARY KEY,
   "name" varchar NOT NULL,
   "owner_nickname" varchar NOT NULL,
-  "owner_id" bigint UNIQUE NOT NULL,
+  "rm_id" bigint UNIQUE NOT NULL,
   "capitals" int[],
   "political_entity" varchar NOT NULL,
   "color" varchar NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE "realms" (
 
 CREATE TABLE "realm_members" (
   "realm_member_id" bigserial PRIMARY KEY,
-  "user_id" bigint UNIQUE NOT NULL,
+  "user_id" bigint,
   "status" varchar NOT NULL,
   "private_money" int NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
@@ -33,6 +33,7 @@ CREATE TABLE "sectors" (
   "cell_number" int PRIMARY KEY,
   "province_number" int NOT NULL,
   "realm_id" bigint NOT NULL,
+  "rm_id" bigint NOT NULL,
   "population" int NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -54,7 +55,7 @@ CREATE TABLE "levies" (
   "lancers" int NOT NULL,
   "supply_troop" int NOT NULL,
   "movement_speed" float NOT NULL,
-  "realm_member_id" bigint NOT NULL,
+  "rm_id" bigint NOT NULL,
   "realm_id" bigint,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
@@ -81,7 +82,7 @@ CREATE TABLE "indigenous_units" (
 
 CREATE TABLE "conquered_nations" (
   "conquered_nation_id" bigserial PRIMARY KEY,
-  "owner_id" bigint NOT NULL,
+  "rm_id" bigint NOT NULL,
   "owner_nickname" varchar NOT NULL,
   "country_name" varchar NOT NULL,
   "cells_jsonb" JSONB NOT NULL,
@@ -104,20 +105,28 @@ CREATE TABLE "levy_surrenders" (
   "surrendered_at" timestamptz NOT NULL,
   "surrendered_sector_location" int NOT NULL,
   "levy_id" bigint UNIQUE NOT NULL,
-  "receiving_realm_id" bigint NOT NULL
+  "receiving_realm_id" bigint NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "world_time_records" (
+  "world_time_record_id" bigserial PRIMARY KEY,
+  "stop_reason" varchar NOT NULL,
+  "world_stopped_at" timestamptz NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE INDEX ON "users" ("email");
 
-CREATE INDEX ON "realms" ("owner_id");
-
-CREATE INDEX ON "realm_members" ("user_id");
+CREATE INDEX ON "realms" ("rm_id");
 
 CREATE INDEX ON "sectors" ("realm_id");
 
+CREATE INDEX ON "sectors" ("rm_id");
+
 CREATE INDEX ON "realm_sectors_jsonb" ("realm_sectors_jsonb_id");
 
-CREATE INDEX ON "levies" ("realm_member_id");
+CREATE INDEX ON "levies" ("rm_id");
 
 CREATE INDEX ON "levies" ("realm_id");
 
@@ -131,7 +140,7 @@ CREATE INDEX ON "levies_actions" ("expected_completion_at");
 
 CREATE INDEX ON "levies_actions" ("completed");
 
-CREATE INDEX ON "conquered_nations" ("owner_id");
+CREATE INDEX ON "conquered_nations" ("rm_id");
 
 CREATE INDEX ON "battle_outcome" ("levy_action_id");
 
@@ -139,27 +148,29 @@ CREATE INDEX ON "levy_surrenders" ("levy_id");
 
 CREATE INDEX ON "levy_surrenders" ("receiving_realm_id");
 
-ALTER TABLE "realm_members" ADD FOREIGN KEY ("user_id") REFERENCES "realms" ("owner_id");
+ALTER TABLE "realms" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("realm_member_id");
 
-ALTER TABLE "users" ADD FOREIGN KEY ("user_id") REFERENCES "realm_members" ("user_id") ON DELETE SET NULL;
+ALTER TABLE "realm_members" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("user_id") ON DELETE SET NULL;
 
 ALTER TABLE "sectors" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id");
 
-ALTER TABLE "realms" ADD FOREIGN KEY ("realm_id") REFERENCES "realm_sectors_jsonb" ("realm_sectors_jsonb_id") ON DELETE CASCADE;
+ALTER TABLE "sectors" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("realm_member_id");
+
+ALTER TABLE "realm_sectors_jsonb" ADD FOREIGN KEY ("realm_sectors_jsonb_id") REFERENCES "realms" ("realm_id") ON DELETE CASCADE;
 
 ALTER TABLE "levies" ADD FOREIGN KEY ("encampment") REFERENCES "sectors" ("cell_number");
 
-ALTER TABLE "levies" ADD FOREIGN KEY ("realm_member_id") REFERENCES "realm_members" ("user_id");
+ALTER TABLE "levies" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("realm_member_id");
 
 ALTER TABLE "levies" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id") ON DELETE SET NULL;
 
 ALTER TABLE "levies_actions" ADD FOREIGN KEY ("levy_id") REFERENCES "levies" ("levy_id") ON DELETE CASCADE;
 
-ALTER TABLE "conquered_nations" ADD FOREIGN KEY ("owner_id") REFERENCES "realm_members" ("user_id");
+ALTER TABLE "conquered_nations" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("realm_member_id");
 
 ALTER TABLE "battle_outcome" ADD FOREIGN KEY ("levy_action_id") REFERENCES "levies_actions" ("levy_action_id") ON DELETE CASCADE;
 
-ALTER TABLE "levies" ADD FOREIGN KEY ("levy_id") REFERENCES "levy_surrenders" ("levy_id") ON DELETE CASCADE;
+ALTER TABLE "levy_surrenders" ADD FOREIGN KEY ("levy_id") REFERENCES "levies" ("levy_id") ON DELETE CASCADE;
 
 ALTER TABLE "levy_surrenders" ADD FOREIGN KEY ("receiving_realm_id") REFERENCES "realms" ("realm_id");
 

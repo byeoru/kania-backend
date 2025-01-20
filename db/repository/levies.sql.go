@@ -22,10 +22,10 @@ INSERT INTO levies (
     lancers,
     supply_troop,
     movement_speed,
-    realm_member_id
+    rm_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, realm_member_id, realm_id, created_at
+) RETURNING levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, rm_id, realm_id, created_at
 `
 
 type CreateLevyParams struct {
@@ -39,7 +39,7 @@ type CreateLevyParams struct {
 	Lancers       int32   `json:"lancers"`
 	SupplyTroop   int32   `json:"supply_troop"`
 	MovementSpeed float64 `json:"movement_speed"`
-	RealmMemberID int64   `json:"realm_member_id"`
+	RmID          int64   `json:"rm_id"`
 }
 
 func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error) {
@@ -54,7 +54,7 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 		arg.Lancers,
 		arg.SupplyTroop,
 		arg.MovementSpeed,
-		arg.RealmMemberID,
+		arg.RmID,
 	)
 	var i Levy
 	err := row.Scan(
@@ -69,7 +69,7 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 		&i.Lancers,
 		&i.SupplyTroop,
 		&i.MovementSpeed,
-		&i.RealmMemberID,
+		&i.RmID,
 		&i.RealmID,
 		&i.CreatedAt,
 	)
@@ -77,7 +77,7 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 }
 
 const findEncampmentLevies = `-- name: FindEncampmentLevies :many
-SELECT levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, realm_member_id, realm_id, created_at FROM levies
+SELECT levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, rm_id, realm_id, created_at FROM levies
 WHERE realm_id = $1 AND encampment = $2
 `
 
@@ -107,7 +107,7 @@ func (q *Queries) FindEncampmentLevies(ctx context.Context, arg *FindEncampmentL
 			&i.Lancers,
 			&i.SupplyTroop,
 			&i.MovementSpeed,
-			&i.RealmMemberID,
+			&i.RmID,
 			&i.RealmID,
 			&i.CreatedAt,
 		); err != nil {
@@ -125,16 +125,16 @@ func (q *Queries) FindEncampmentLevies(ctx context.Context, arg *FindEncampmentL
 }
 
 const getOwnerIdByLevyId = `-- name: GetOwnerIdByLevyId :one
-SELECT realm_member_id FROM levies
+SELECT rm_id FROM levies
 WHERE levy_id = $1
 LIMIT 1
 `
 
 func (q *Queries) GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getOwnerIdByLevyId, levyID)
-	var realm_member_id int64
-	err := row.Scan(&realm_member_id)
-	return realm_member_id, err
+	var rm_id int64
+	err := row.Scan(&rm_id)
+	return rm_id, err
 }
 
 const removeLevy = `-- name: RemoveLevy :exec

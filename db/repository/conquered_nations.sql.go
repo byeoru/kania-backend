@@ -13,7 +13,7 @@ import (
 
 const createConqueredNations = `-- name: CreateConqueredNations :exec
 INSERT INTO conquered_nations (
-   owner_id,
+   rm_id,
    owner_nickname,
    country_name,
    cells_jsonb,
@@ -24,7 +24,7 @@ INSERT INTO conquered_nations (
 `
 
 type CreateConqueredNationsParams struct {
-	OwnerID       int64           `json:"owner_id"`
+	RmID          int64           `json:"rm_id"`
 	OwnerNickname string          `json:"owner_nickname"`
 	CountryName   string          `json:"country_name"`
 	CellsJsonb    json.RawMessage `json:"cells_jsonb"`
@@ -33,7 +33,7 @@ type CreateConqueredNationsParams struct {
 
 func (q *Queries) CreateConqueredNations(ctx context.Context, arg *CreateConqueredNationsParams) error {
 	_, err := q.db.ExecContext(ctx, createConqueredNations,
-		arg.OwnerID,
+		arg.RmID,
 		arg.OwnerNickname,
 		arg.CountryName,
 		arg.CellsJsonb,

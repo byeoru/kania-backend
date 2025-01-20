@@ -1,7 +1,7 @@
 -- name: CreateRealm :one
 INSERT INTO realms (
     name,
-    owner_id,
+    rm_id,
     owner_nickname,
     political_entity,
     color,
@@ -29,7 +29,7 @@ J.cells_jsonb
 FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
 ON R.realm_id = J.realm_sectors_jsonb_id 
-WHERE R.owner_id = $1 LIMIT 1;
+WHERE R.rm_id = $1 LIMIT 1;
 
 -- name: FindAllRealmsWithJsonExcludeMe :many
 SELECT 
@@ -43,7 +43,7 @@ J.cells_jsonb
 FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
 ON R.realm_id = J.realm_sectors_jsonb_id
-WHERE R.owner_id != $1;
+WHERE R.rm_id != $1;
 
 -- name: UpdateCensusAt :exec
 UPDATE realms
@@ -58,12 +58,12 @@ WHERE realm_id = $1;
 SELECT EXISTS (
     SELECT 1
     FROM realms
-    WHERE realm_id = $1 AND owner_id = $2
+    WHERE realm_id = $1 AND rm_id = $2
 );
 
 -- name: GetRealmId :one
 SELECT realm_id FROM realms
-WHERE owner_id = $1;
+WHERE rm_id = $1;
 
 -- name: UpdateStateCoffers :one
 UPDATE realms
@@ -75,7 +75,7 @@ RETURNING state_coffers;
 SELECT R.realm_id, name, cell_number FROM realms AS R
 LEFT JOIN sectors AS S
 ON R.realm_id = S.realm_id AND S.cell_number = $2
-WHERE R.owner_id = $1
+WHERE R.rm_id = $1
 LIMIT 1;
 
 -- name: GetOurRealmLevies :many

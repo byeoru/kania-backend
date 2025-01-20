@@ -21,15 +21,17 @@ var (
 )
 
 type levyRouter struct {
-	levyService  *service.LevyService
-	realmService *service.RealmService
+	levyService        *service.LevyService
+	realmService       *service.RealmService
+	realmMemberService *service.RealmMemberService
 }
 
 func NewLevyRouter(router *API) {
 	levyRouterInit.Do(func() {
 		levyRouterInstance = &levyRouter{
-			levyService:  router.service.LevyService,
-			realmService: router.service.RealmService,
+			levyService:        router.service.LevyService,
+			realmService:       router.service.RealmService,
+			realmMemberService: router.service.RealmMemberService,
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
@@ -47,12 +49,30 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
-	arg1 := db.GetRealmIdWithSectorParams{
-		OwnerID:    authPayload.UserId,
+	arg1 := db.GetMyRmIdOfSectorParams{
+		UserID:     sql.NullInt64{Int64: authPayload.UserId, Valid: true},
+		CellNumber: req.Encampment,
+	}
+	rmId, err := r.realmMemberService.GetMyRmIdOfSector(ctx, &arg1)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusForbidden, &types.CreateLevyResponse{
+				APIResponse: types.NewAPIResponse(false, "해당 군에 대한 권한이 없습니다.", nil),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.CreateLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "서버 오류입니다. CODE: 1", err.Error()),
+		})
+		return
+	}
+
+	arg2 := db.GetRealmIdWithSectorParams{
+		RmID:       rmId,
 		CellNumber: req.Encampment,
 	}
 
-	foundRealmSector, err := r.realmService.GetMyRealmIdFromSectorNumber(ctx, &arg1)
+	foundRealmSector, err := r.realmService.GetMyRealmIdFromSectorNumber(ctx, &arg2)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, &types.CreateLevyResponse{
@@ -61,7 +81,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, &types.CreateLevyResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+			APIResponse: types.NewAPIResponse(false, "서버 오류입니다. CODE: 2", err.Error()),
 		})
 		return
 	}
@@ -81,8 +101,8 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 		SupplyTroop:   req.SupplyTroop,
 	})
 
-	arg2 := db.CreateLevyParams{
-		RealmMemberID: authPayload.UserId,
+	arg3 := db.CreateLevyParams{
+		RmID:          rmId,
 		MovementSpeed: movementSpeed,
 		Name:          req.Name,
 		Morale:        util.DefaultMorale,
@@ -95,7 +115,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 		Stationed:     true,
 	}
 
-	levy, resultInfo, err := r.levyService.FormAUnit(ctx, foundRealmSector.RealmID, &arg2)
+	levy, resultInfo, err := r.levyService.FormAUnit(ctx, foundRealmSector.RealmID, &arg3)
 	if err != nil {
 		if txError, ok := err.(*errors.TxError); ok {
 			ctx.JSON(txError.Code, &types.CreateLevyResponse{
@@ -104,7 +124,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, &types.CreateLevyResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+			APIResponse: types.NewAPIResponse(false, "서버 오류입니다. CODE: 3", err.Error()),
 		})
 		return
 	}
@@ -116,7 +136,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 		Levy:         types.ToLevyResponse(levy),
 		LevyAffiliation: &types.LevyAffiliation{
 			RealmID: foundRealmSector.RealmID,
-			UserID:  authPayload.UserId,
+			RmID:    rmId,
 		},
 	})
 }

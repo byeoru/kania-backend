@@ -20,17 +20,19 @@ var (
 )
 
 type levyActionRouter struct {
-	levyActionService *service.LevyActionService
-	levyService       *service.LevyService
-	sectorService     *service.SectorService
+	levyActionService  *service.LevyActionService
+	levyService        *service.LevyService
+	sectorService      *service.SectorService
+	realmMemberService *service.RealmMemberService
 }
 
 func NewLevyActionRouter(router *API) {
 	levyActionRouterInit.Do(func() {
 		levyActionRouterInstance = &levyActionRouter{
-			sectorService:     router.service.SectorService,
-			levyService:       router.service.LevyService,
-			levyActionService: router.service.LevyActionService,
+			sectorService:      router.service.SectorService,
+			levyService:        router.service.LevyService,
+			levyActionService:  router.service.LevyActionService,
+			realmMemberService: router.service.RealmMemberService,
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
@@ -75,7 +77,25 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 		return
 	}
 
-	err = r.sectorService.CheckOriginTargetSectorValid(ctx, authPayload.UserId, reqJson.OriginSector, reqJson.TargetSector)
+	arg2 := db.GetMyRmIdOfSectorParams{
+		UserID:     sql.NullInt64{Int64: authPayload.UserId, Valid: true},
+		CellNumber: reqJson.OriginSector,
+	}
+	rmId, err := r.realmMemberService.GetMyRmIdOfSector(ctx, &arg2)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusForbidden, &types.CreateLevyResponse{
+				APIResponse: types.NewAPIResponse(false, "해당 군에 대한 권한이 없습니다.", nil),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.CreateLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	err = r.sectorService.CheckOriginTargetSectorValid(ctx, rmId, reqJson.OriginSector, reqJson.TargetSector)
 	if err != nil {
 		if txError, ok := err.(*errors.TxError); ok {
 			ctx.JSON(txError.Code, &types.AttackResponse{
@@ -110,7 +130,7 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 		return
 	}
 
-	arg2 := db.CreateLevyActionParams{
+	arg3 := db.CreateLevyActionParams{
 		LevyID:       reqQuery.LevyID,
 		OriginSector: reqJson.OriginSector,
 		TargetSector: reqJson.TargetSector,
@@ -121,7 +141,7 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 		ExpectedCompletionAt: reqJson.CurrentWorldTime,
 	}
 
-	err = r.levyActionService.ExecuteLevyAction(ctx, &arg2)
+	err = r.levyActionService.ExecuteLevyAction(ctx, &arg3)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.AttackResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),

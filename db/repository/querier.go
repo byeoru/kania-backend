@@ -27,6 +27,7 @@ type Querier interface {
 	FindAllRealmsWithJsonExcludeMe(ctx context.Context, rmID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
 	FindEncampmentLevies(ctx context.Context, arg *FindEncampmentLeviesParams) ([]*Levy, error)
 	FindIndigenousUnit(ctx context.Context, sectorNumber int32) (*IndigenousUnit, error)
+	FindLatestWorldTimeRecord(ctx context.Context) (*WorldTimeRecord, error)
 	FindLevyAction(ctx context.Context, arg *FindLevyActionParams) (*LeviesAction, error)
 	FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevyActionCountByLevyIdParams) (int64, error)
 	FindLevyActionsBeforeDate(ctx context.Context, currentWorldTime time.Time) ([]*FindLevyActionsBeforeDateRow, error)

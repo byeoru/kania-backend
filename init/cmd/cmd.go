@@ -1,9 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/byeoru/kania/api"
 	"github.com/byeoru/kania/config"
@@ -11,6 +16,7 @@ import (
 	db "github.com/byeoru/kania/db/repository"
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/token"
+	"github.com/byeoru/kania/util"
 )
 
 type Cmd struct {
@@ -40,6 +46,29 @@ func NewCmd(filePath string) *Cmd {
 	c.service = service.NewService(store)
 	c.api = api.NewApi(c.service)
 	c.cron = cron.NewCron(c.service)
-	c.api.ServerStart(config.Server.Port)
+
+	/**
+	cron 실행
+	*/
+	ticker := time.NewTicker(time.Second)
+	ctx := context.Background()
+	go c.cron.LevyActionCron.ExecuteCronLevyActions(&ctx, ticker)
+
+	go c.api.ServerStart(config.Server.Port)
+
+	// 종료 신호 채널 생성
+	quit := make(chan os.Signal, 1)
+	// SIGINT (Ctrl+C), SIGTERM 신호를 채널에 전달
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// 종료 신호 대기
+	<-quit
+	fmt.Println("\nShutting down server...")
+
+	// 종료 전에 실행할 함수 호출
+	ticker.Stop()
+	c.cron.LevyActionCron.RecordWorldTime(&ctx, util.WorldTime)
+
+	fmt.Println("Server exiting")
 	return c
 }

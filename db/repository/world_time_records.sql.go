@@ -28,3 +28,20 @@ func (q *Queries) CreateWorldTimeRecord(ctx context.Context, arg *CreateWorldTim
 	_, err := q.db.ExecContext(ctx, createWorldTimeRecord, arg.StopReason, arg.WorldStoppedAt)
 	return err
 }
+
+const findLatestWorldTimeRecord = `-- name: FindLatestWorldTimeRecord :one
+SELECT world_time_record_id, stop_reason, world_stopped_at, created_at FROM world_time_records
+ORDER BY world_time_record_id DESC LIMIT 1
+`
+
+func (q *Queries) FindLatestWorldTimeRecord(ctx context.Context) (*WorldTimeRecord, error) {
+	row := q.db.QueryRowContext(ctx, findLatestWorldTimeRecord)
+	var i WorldTimeRecord
+	err := row.Scan(
+		&i.WorldTimeRecordID,
+		&i.StopReason,
+		&i.WorldStoppedAt,
+		&i.CreatedAt,
+	)
+	return &i, err
+}

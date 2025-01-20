@@ -28,3 +28,7 @@ func newWorldTimeRecordService(store db.Store) *WorldTimeRecordService {
 func (s *WorldTimeRecordService) CreateWorldTimeRecord(ctx *context.Context, arg *db.CreateWorldTimeRecordParams) error {
 	return s.store.CreateWorldTimeRecord(*ctx, arg)
 }
+
+func (s *WorldTimeRecordService) FindLatestWorldTime(ctx *context.Context) (*db.WorldTimeRecord, error) {
+	return s.store.FindLatestWorldTimeRecord(*ctx)
+}

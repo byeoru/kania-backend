@@ -1,5 +1,7 @@
 package util
 
+import "time"
+
 const (
 	TribePopulationGrowthRate   = 0.02
 	KingdomPopulationGrowthRate = 0.03
@@ -126,3 +128,7 @@ const (
 const (
 	RealmAnnihilation = "RealmAnnihilation" // 국가 멸망
 )
+
+// world time
+var WorldTime time.Time
+var SpeedMultiplier = 60

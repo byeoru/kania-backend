@@ -12,15 +12,14 @@ var (
 )
 
 type Cron struct {
-	service *service.Service
+	LevyActionCron *LevyActionCron
 }
 
-func NewCron(service *service.Service) *Cron {
+func NewCron(s *service.Service) *Cron {
 	cronInit.Do(func() {
 		cronInstance = &Cron{
-			service: service,
+			LevyActionCron: NewLevyActionCron(s),
 		}
-		NewLevyActionCron(cronInstance)
 	})
 	return cronInstance
 }

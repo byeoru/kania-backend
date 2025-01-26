@@ -36,64 +36,8 @@ func NewRealmRouter(router *API) {
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
-	authRoutes.GET("/api/realms/me", realmRouterInstance.getMyRealm)
-	authRoutes.GET("/api/realms", realmRouterInstance.getMeAndOthersReams)
-	authRoutes.GET("/api/realms/levies", realmRouterInstance.getOurRealmLevies)
 	authRoutes.POST("/api/realms", realmRouterInstance.establishARealm)
 	authRoutes.POST("/api/realms/census", realmRouterInstance.executeCensus)
-}
-
-func (r *realmRouter) getMyRealm(ctx *gin.Context) {
-	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-
-	realm, err := r.realmService.FindMyRealm(ctx, authPayload.UserId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNoContent, gin.H{})
-			return
-		}
-		ctx.JSON(http.StatusInternalServerError, &types.GetMyRealmsResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, &types.GetMyRealmsResponse{
-		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
-		Realm:       types.ToMyRealmResponse(realm),
-	})
-}
-
-func (r *realmRouter) getMeAndOthersReams(ctx *gin.Context) {
-	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-
-	myRealm, err := r.realmService.FindMyRealm(ctx, authPayload.UserId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			myRealm = nil
-		} else {
-			ctx.JSON(http.StatusInternalServerError, &types.GetMeAndOthersReams{
-				APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-			})
-			return
-		}
-	}
-
-	theOthersRealms, err := r.realmService.FindAllRealmExcludeMe(ctx, authPayload.UserId)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, &types.GetMeAndOthersReams{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, &types.GetMeAndOthersReams{
-		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
-		MyRealm:     types.ToMyRealmResponse(myRealm),
-		TheOthersRealms: util.Map(theOthersRealms, func(realm *db.FindAllRealmsWithJsonExcludeMeRow) *types.RealmResponse {
-			return types.ToTheOthersRealmsResponse(realm)
-		}),
-	})
 }
 
 func (r *realmRouter) establishARealm(ctx *gin.Context) {
@@ -115,20 +59,24 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 		return
 	}
 
+	worldTime := util.CalculateCurrentWorldTime(util.StandardRealTime, util.StandardWorldTime)
+
 	realmArg := db.CreateRealmParams{
 		Name:                 req.Name,
+		OwnerRmID:            authPayload.UserId,
 		OwnerNickname:        owner.Nickname,
-		PoliticalEntity:      "Tribe",
+		PoliticalEntity:      util.Tribe,
 		Color:                req.RealmColor,
 		PopulationGrowthRate: util.TribePopulationGrowthRate,
 		StateCoffers:         util.DefaultStateCoffers,
-		CensusAt:             req.InitDate,
-		TaxCollectionAt:      req.InitDate,
+		CensusAt:             worldTime,
+		TaxCollectionAt:      worldTime,
 	}
 	sectorArg := db.CreateSectorParams{
 		CellNumber:     req.CellNumber,
 		ProvinceNumber: req.ProvinceNumber,
 		Population:     req.Population,
+		RmID:           authPayload.UserId,
 	}
 
 	result, err := r.realmService.RegisterRealm(ctx, &realmArg, &sectorArg, authPayload.UserId)
@@ -156,12 +104,11 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
-	// 속한 국가의 realm id를 가져옴
-	myRealmId, err := r.realmMemberService.GetMyRealmId(ctx, authPayload.UserId)
+	me, err := r.realmMemberService.FindFullRealmMember(ctx, authPayload.UserId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, &types.ExecuteCensusResponse{
-				APIResponse: types.NewAPIResponse(false, "소속된 국가가 존재하지 않습니다.", err.Error()),
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
 			})
 			return
 		}
@@ -171,7 +118,21 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 		return
 	}
 
-	censusMetadata, err := r.realmService.GetDataForCensus(ctx, myRealmId)
+	if !me.RealmMember.RealmID.Valid {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.ExecuteCensusResponse{
+			APIResponse: types.NewAPIResponse(false, "소속된 국가가 없습니다.", nil),
+		})
+		return
+	}
+
+	if !me.MemberAuthority.Census {
+		ctx.JSON(http.StatusForbidden, &types.ExecuteCensusResponse{
+			APIResponse: types.NewAPIResponse(false, "인구조사 권한이 없습니다.", err.Error()),
+		})
+		return
+	}
+
+	censusData, err := r.realmService.GetDataForCensus(ctx, me.RealmMember.RealmID.Int64)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.ExecuteCensusResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
@@ -180,7 +141,7 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 	}
 
 	// 두 날짜의 차이 계산
-	duration := req.CurrentDate.Sub(censusMetadata.CensusAt)
+	duration := req.CurrentDate.Sub(censusData.CensusAt)
 	days := duration.Hours() / 24
 	// 이전 인구조사 실시 후 1년이 지났는지 확인 (1년 = 365.25일, 평균적으로)
 	oneYear := 31557600
@@ -192,13 +153,13 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 	}
 
 	realmArg := db.UpdateCensusAtParams{
-		RealmID:  myRealmId,
+		RealmID:  me.RealmMember.RealmID.Int64,
 		CensusAt: req.CurrentDate,
 	}
 	sectorArg := db.UpdateCensusPopulationParams{
-		RealmID:        myRealmId,
+		RealmID:        me.RealmMember.RealmID.Int64,
 		DurationDay:    days,
-		RateOfIncrease: censusMetadata.PopulationGrowthRate,
+		RateOfIncrease: censusData.PopulationGrowthRate,
 	}
 
 	err = r.sectorService.ApplyCensus(ctx, &realmArg, &sectorArg)
@@ -211,36 +172,5 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, &types.ExecuteCensusResponse{
 		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
-	})
-}
-
-func (r *realmRouter) getOurRealmLevies(ctx *gin.Context) {
-	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
-
-	myRealmId, err := r.realmService.GetMyRealmId(ctx, authPayload.UserId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, &types.CreateLevyResponse{
-				APIResponse: types.NewAPIResponse(false, "소속된 국가가 존재하지 않습니다.", err.Error()),
-			})
-			return
-		}
-		ctx.JSON(http.StatusInternalServerError, &types.CreateLevyResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	realmLevies, err := r.realmService.GetOurRealmLevies(ctx, myRealmId)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, &types.GetRealmMembersLeviesResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, &types.GetRealmMembersLeviesResponse{
-		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
-		RealmLevies: types.ToRealmLevies(realmLevies),
 	})
 }

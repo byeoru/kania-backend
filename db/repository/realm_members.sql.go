@@ -10,60 +10,82 @@ import (
 	"database/sql"
 )
 
-const createRealmMember = `-- name: CreateRealmMember :one
+const createRealmMember = `-- name: CreateRealmMember :exec
 INSERT INTO realm_members (
-    user_id,
+    rm_id,
+    realm_id,
     status,
     private_money
 ) VALUES (
-    $1, $2, $3
-) RETURNING realm_member_id
+    $1, $2, $3, $4
+)
 `
 
 type CreateRealmMemberParams struct {
-	UserID       sql.NullInt64 `json:"user_id"`
+	RmID         sql.NullInt64 `json:"rm_id"`
+	RealmID      sql.NullInt64 `json:"realm_id"`
 	Status       string        `json:"status"`
 	PrivateMoney int32         `json:"private_money"`
 }
 
-func (q *Queries) CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, createRealmMember, arg.UserID, arg.Status, arg.PrivateMoney)
-	var realm_member_id int64
-	err := row.Scan(&realm_member_id)
-	return realm_member_id, err
+func (q *Queries) CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error {
+	_, err := q.db.ExecContext(ctx, createRealmMember,
+		arg.RmID,
+		arg.RealmID,
+		arg.Status,
+		arg.PrivateMoney,
+	)
+	return err
 }
 
-const getMyRmIdOfSector = `-- name: GetMyRmIdOfSector :one
-SELECT S.rm_id
+const findFullRealmMember = `-- name: FindFullRealmMember :one
+SELECT rm.rm_id, rm.realm_id, rm.status, rm.private_money, rm.created_at, ma.rm_id, ma.create_unit, ma.reinforce_unit, ma.move_unit, ma.attack_unit, ma.private_troops, ma.census, ma.created_at 
 FROM realm_members AS RM
-INNER JOIN sectors AS S
-ON RM.realm_member_id = S.rm_id AND cell_number = $2
-WHERE user_id = $1
+INNER JOIN member_authorities AS MA
+ON RM.rm_id = MA.rm_id
+WHERE RM.rm_id = $1 LIMIT 1
 `
 
-type GetMyRmIdOfSectorParams struct {
-	UserID     sql.NullInt64 `json:"user_id"`
-	CellNumber int32         `json:"cell_number"`
+type FindFullRealmMemberRow struct {
+	RealmMember     RealmMember     `json:"realm_member"`
+	MemberAuthority MemberAuthority `json:"member_authority"`
 }
 
-func (q *Queries) GetMyRmIdOfSector(ctx context.Context, arg *GetMyRmIdOfSectorParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getMyRmIdOfSector, arg.UserID, arg.CellNumber)
-	var rm_id int64
-	err := row.Scan(&rm_id)
-	return rm_id, err
+func (q *Queries) FindFullRealmMember(ctx context.Context, rmID sql.NullInt64) (*FindFullRealmMemberRow, error) {
+	row := q.db.QueryRowContext(ctx, findFullRealmMember, rmID)
+	var i FindFullRealmMemberRow
+	err := row.Scan(
+		&i.RealmMember.RmID,
+		&i.RealmMember.RealmID,
+		&i.RealmMember.Status,
+		&i.RealmMember.PrivateMoney,
+		&i.RealmMember.CreatedAt,
+		&i.MemberAuthority.RmID,
+		&i.MemberAuthority.CreateUnit,
+		&i.MemberAuthority.ReinforceUnit,
+		&i.MemberAuthority.MoveUnit,
+		&i.MemberAuthority.AttackUnit,
+		&i.MemberAuthority.PrivateTroops,
+		&i.MemberAuthority.Census,
+		&i.MemberAuthority.CreatedAt,
+	)
+	return &i, err
 }
 
-const getRealmIdByRmId = `-- name: GetRealmIdByRmId :one
-SELECT R.realm_id FROM realm_members AS RM
-LEFT JOIN realms as R
-ON RM.realm_member_id = R.rm_id
-WHERE rm_id = $1
-LIMIT 1
+const findRealmMember = `-- name: FindRealmMember :one
+SELECT rm_id, realm_id, status, private_money, created_at FROM realm_members
+WHERE rm_id = $1 LIMIT 1
 `
 
-func (q *Queries) GetRealmIdByRmId(ctx context.Context, rmID int64) (sql.NullInt64, error) {
-	row := q.db.QueryRowContext(ctx, getRealmIdByRmId, rmID)
-	var realm_id sql.NullInt64
-	err := row.Scan(&realm_id)
-	return realm_id, err
+func (q *Queries) FindRealmMember(ctx context.Context, rmID sql.NullInt64) (*RealmMember, error) {
+	row := q.db.QueryRowContext(ctx, findRealmMember, rmID)
+	var i RealmMember
+	err := row.Scan(
+		&i.RmID,
+		&i.RealmID,
+		&i.Status,
+		&i.PrivateMoney,
+		&i.CreatedAt,
+	)
+	return &i, err
 }

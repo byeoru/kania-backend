@@ -28,14 +28,6 @@ func newRealmService(store db.Store) *RealmService {
 	return realmServiceInstance
 }
 
-func (s *RealmService) FindMyRealm(ctx *gin.Context, userId int64) (*db.FindRealmWithJsonRow, error) {
-	return s.store.FindRealmWithJson(ctx, userId)
-}
-
-func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, userId int64) ([]*db.FindAllRealmsWithJsonExcludeMeRow, error) {
-	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, userId)
-}
-
 func (s *RealmService) RegisterRealm(
 	ctx *gin.Context,
 	realmArg *db.CreateRealmParams,
@@ -44,8 +36,15 @@ func (s *RealmService) RegisterRealm(
 ) (*db.Realm, error) {
 	var result *db.Realm
 	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
-		rmId, err := q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
-			UserID:       sql.NullInt64{Int64: userId, Valid: true},
+		realmArg.Color = realmArg.Color[1:]
+		realm, err := q.CreateRealm(ctx, realmArg)
+		if err != nil {
+			return err
+		}
+
+		err = q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
+			RmID:         sql.NullInt64{Int64: userId, Valid: true},
+			RealmID:      sql.NullInt64{Int64: realm.RealmID, Valid: true},
 			Status:       util.Chief,
 			PrivateMoney: util.DefaultPrivateMoney,
 		})
@@ -53,26 +52,31 @@ func (s *RealmService) RegisterRealm(
 			return err
 		}
 
-		realmArg.RmID = rmId
-
-		realmArg.Color = realmArg.Color[1:]
-		realm, err := q.CreateRealm(ctx, realmArg)
+		arg1 := db.CreateMemberAuthorityParams{
+			RmID:          userId,
+			CreateUnit:    true,
+			ReinforceUnit: true,
+			MoveUnit:      true,
+			AttackUnit:    true,
+			PrivateTroops: true,
+			Census:        true,
+		}
+		err = q.CreateMemberAuthority(ctx, &arg1)
 		if err != nil {
 			return err
 		}
 
 		sectorArg.RealmID = realm.RealmID
-		sectorArg.RmID = rmId
 		err = q.CreateSector(ctx, sectorArg)
 		if err != nil {
 			return err
 		}
 
-		arg := db.AddCapitalParams{
+		arg2 := db.AddCapitalParams{
 			RealmID: realm.RealmID,
 			Capital: sectorArg.CellNumber,
 		}
-		err = q.AddCapital(ctx, &arg)
+		err = q.AddCapital(ctx, &arg2)
 		if err != nil {
 			return err
 		}
@@ -101,18 +105,10 @@ func (s *RealmService) GetDataForCensus(ctx *gin.Context, realmId int64) (*db.Ge
 	return s.store.GetCensusAndPopulationGrowthRate(ctx, realmId)
 }
 
-func (s *RealmService) GetMyRealmId(ctx *gin.Context, userId int64) (int64, error) {
-	return s.store.GetRealmId(ctx, userId)
-}
-
-func (s *RealmService) GetMyRealmIdFromSectorNumber(ctx *gin.Context, arg *db.GetRealmIdWithSectorParams) (*db.GetRealmIdWithSectorRow, error) {
-	return s.store.GetRealmIdWithSector(ctx, arg)
-}
-
-func (s *RealmService) GetOurRealmLevies(ctx *gin.Context, realmId int64) ([]*db.GetOurRealmLeviesRow, error) {
-	return s.store.GetOurRealmLevies(ctx, realmId)
-}
-
 func (s *RealmService) AddCapital(ctx *gin.Context, arg *db.AddCapitalParams) error {
 	return s.store.AddCapital(ctx, arg)
+}
+
+func (s *RealmService) GetRealmOwnerRmId(ctx *gin.Context, realmId int64) (int64, error) {
+	return s.store.GetRealmOwnerRmId(ctx, realmId)
 }

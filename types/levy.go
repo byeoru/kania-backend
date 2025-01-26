@@ -31,6 +31,7 @@ func ToLevyResponse(levy *db.Levy) *LevyResponse {
 		Lancers:       levy.Lancers,
 		SupplyTroop:   levy.SupplyTroop,
 		MovementSpeed: levy.MovementSpeed,
+		Stationed:     levy.Stationed,
 	}
 	return &rsLevy
 }
@@ -45,6 +46,7 @@ type LevyResponse struct {
 	Lancers       int32   `json:"lancers"`
 	SupplyTroop   int32   `json:"supply_troop"`
 	MovementSpeed float64 `json:"movement_speed"`
+	Stationed     bool    `json:"stationed"`
 }
 
 type CreateLevyResultInfo struct {

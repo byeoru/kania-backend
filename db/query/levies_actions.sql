@@ -13,7 +13,9 @@ INSERT INTO levies_actions (
 
 -- name: FindLevyActionCountByLevyId :one
 SELECT COUNT(*) FROM levies_actions
-WHERE levy_id = sqlc.arg(levy_id)::bigint AND expected_completion_at < sqlc.arg(reference_date)::timestamptz
+WHERE levy_id = sqlc.arg(levy_id)::bigint 
+AND expected_completion_at < sqlc.arg(reference_date)::timestamptz
+AND completed = false
 LIMIT 1;
 
 -- name: FindLevyAction :one

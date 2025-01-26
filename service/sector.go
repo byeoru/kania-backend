@@ -48,45 +48,23 @@ func (s *SectorService) ApplyCensus(ctx *gin.Context, realmArg *db.UpdateCensusA
 	})
 }
 
-func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, cellNumber int32, rmId int64) (int32, bool, error) {
-	var population int32
-	var isOwner bool
-	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
-		result, err := q.GetPopulation(ctx, cellNumber)
-		if err != nil {
-			return err
+func (s *SectorService) GetPopulationAndCheck(ctx *gin.Context, sector int32, realmId int64) (int32, error) {
+	r, err := s.store.GetPopulation(ctx, sector)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, errors.NewTxError(http.StatusUnprocessableEntity, "소유 중인 영토가 아닙니다.")
 		}
-		arg := db.CheckCellOwnerParams{
-			RealmID: result.RealmID,
-			RmID:    rmId,
-		}
-		ok, err := q.CheckCellOwner(ctx, &arg)
-		if err != nil {
-			return err
-		}
-		population = result.Population
-		isOwner = ok
-		return nil
-	})
-	return population, isOwner, err
+		return 0, err
+	}
+
+	if r.RealmID != realmId {
+		return 0, errors.NewTxError(http.StatusForbidden, "다른 국가의 영토입니다.")
+	}
+
+	return r.Population, nil
 }
 
-func (s *SectorService) CheckOriginTargetSectorValid(ctx *gin.Context, rmId int64, originSector int32, targetSector int32) error {
-	myRealmId, err := s.store.GetRealmIdByRmId(ctx, rmId)
-	if err != nil {
-		return err
-	}
-	originSectorRealmId, err := s.store.GetSectorRealmId(ctx, originSector)
-	if err != nil {
-		return err
-	}
-	if !myRealmId.Valid {
-		return errors.NewTxError(http.StatusUnprocessableEntity, "부대가 소속된 국가 정보가 없습니다.")
-	}
-	// 출발지가 나의 영토인지 확인
-	if originSectorRealmId != myRealmId.Int64 {
-		return errors.NewTxError(http.StatusUnprocessableEntity, "출발지가 나의 영토가 아닙니다.")
-	}
+func (s *SectorService) CheckOriginTargetSectorValidForAttack(ctx *gin.Context, realmId int64, targetSector int32) error {
 	targetSectorRealmId, err := s.store.GetSectorRealmId(ctx, targetSector)
 	if err != nil {
 		// 누구의 지배도 받지 않는 땅인 경우 Pass
@@ -95,8 +73,28 @@ func (s *SectorService) CheckOriginTargetSectorValid(ctx *gin.Context, rmId int6
 		}
 	}
 	// 공격할 섹터가 나의 영토인지 확인
-	if targetSectorRealmId == myRealmId.Int64 {
+	if targetSectorRealmId == realmId {
 		return errors.NewTxError(http.StatusUnprocessableEntity, "자신의 영토는 공격할 수 없습니다.")
 	}
 	return nil
+}
+
+func (s *SectorService) CheckOriginTargetSectorValidForMove(ctx *gin.Context, realmId int64, targetSector int32) error {
+	targetSectorRealmId, err := s.store.GetSectorRealmId(ctx, targetSector)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.NewTxError(http.StatusUnprocessableEntity, "자신의 영토 내에서만 이동할 수 있습니다.")
+		}
+		return err
+	}
+	// 목적지가 섹터가 나의 영토인지 확인
+	if targetSectorRealmId != realmId {
+		return errors.NewTxError(http.StatusUnprocessableEntity, "자신의 영토 내에서만 이동할 수 있습니다.")
+	}
+	return nil
+}
+
+func (s *SectorService) IsOurSector(ctx *gin.Context, sector int32, realmId int64) (bool, error) {
+	sectorRealmId, err := s.store.GetSectorRealmId(ctx, sector)
+	return realmId == sectorRealmId, err
 }

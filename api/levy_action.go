@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	db "github.com/byeoru/kania/db/repository"
+	grpcclient "github.com/byeoru/kania/grpc_client"
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/token"
 	"github.com/byeoru/kania/types"
@@ -24,6 +25,7 @@ type levyActionRouter struct {
 	levyService        *service.LevyService
 	sectorService      *service.SectorService
 	realmMemberService *service.RealmMemberService
+	rpcClient          *grpcclient.Client
 }
 
 func NewLevyActionRouter(router *API) {
@@ -33,10 +35,12 @@ func NewLevyActionRouter(router *API) {
 			levyService:        router.service.LevyService,
 			levyActionService:  router.service.LevyActionService,
 			realmMemberService: router.service.RealmMemberService,
+			rpcClient:          router.grpcClient,
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
 	authRoutes.POST("/api/levy_action/advance", levyActionRouterInstance.advance)
+	authRoutes.POST("/api/levy_action/move", levyActionRouterInstance.move)
 }
 
 func (r *levyActionRouter) advance(ctx *gin.Context) {
@@ -57,9 +61,59 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
+	me, err := r.realmMemberService.FindRealmMember(ctx, authPayload.UserId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.AttackResponse{
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.AttackResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	if !me.RealmID.Valid {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.AttackResponse{
+			APIResponse: types.NewAPIResponse(false, "소속된 국가가 없습니다.", nil),
+		})
+		return
+	}
+
+	levyOwnership, err := r.levyService.FindLevyInfoWithAuthority(ctx, reqQuery.LevyID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.AttackResponse{
+				APIResponse: types.NewAPIResponse(false, "존재하지 않는 부대입니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.AttackResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	if levyOwnership.RealmID != me.RealmID {
+		ctx.JSON(http.StatusForbidden, &types.AttackResponse{
+			APIResponse: types.NewAPIResponse(false, "다른 국가의 군부대에 명령을 내릴 수 없습니다.", err.Error()),
+		})
+		return
+	}
+
+	if !levyOwnership.AttackUnit {
+		ctx.JSON(http.StatusForbidden, &types.AttackResponse{
+			APIResponse: types.NewAPIResponse(false, "공격 명령을 내릴 수 있는 권한이 없습니다.", err.Error()),
+		})
+		return
+	}
+
+	currentWorldTime := util.CalculateCurrentWorldTime(util.StandardRealTime, util.StandardWorldTime)
 	arg1 := db.FindLevyActionCountByLevyIdParams{
 		LevyID:        reqQuery.LevyID,
-		ReferenceDate: reqJson.CurrentWorldTime,
+		ReferenceDate: currentWorldTime,
 	}
 
 	levyActionCount, err := r.levyActionService.FindLevyActionByLevyId(ctx, &arg1)
@@ -77,25 +131,7 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 		return
 	}
 
-	arg2 := db.GetMyRmIdOfSectorParams{
-		UserID:     sql.NullInt64{Int64: authPayload.UserId, Valid: true},
-		CellNumber: reqJson.OriginSector,
-	}
-	rmId, err := r.realmMemberService.GetMyRmIdOfSector(ctx, &arg2)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusForbidden, &types.CreateLevyResponse{
-				APIResponse: types.NewAPIResponse(false, "해당 군에 대한 권한이 없습니다.", nil),
-			})
-			return
-		}
-		ctx.JSON(http.StatusInternalServerError, &types.CreateLevyResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	err = r.sectorService.CheckOriginTargetSectorValid(ctx, rmId, reqJson.OriginSector, reqJson.TargetSector)
+	err = r.sectorService.CheckOriginTargetSectorValidForAttack(ctx, me.RealmID.Int64, reqJson.TargetSector)
 	if err != nil {
 		if txError, ok := err.(*errors.TxError); ok {
 			ctx.JSON(txError.Code, &types.AttackResponse{
@@ -109,36 +145,25 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 		return
 	}
 
-	bMyLevy, err := r.levyService.IsMyLevy(ctx, authPayload.UserId, reqQuery.LevyID)
+	distance, err := r.rpcClient.GetDistance(levyOwnership.Encampment, reqJson.TargetSector)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, &types.AttackResponse{
-				APIResponse: types.NewAPIResponse(false, "존재하지 않는 부대입니다.", err.Error()),
-			})
-			return
-		}
 		ctx.JSON(http.StatusInternalServerError, &types.AttackResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
 		})
 		return
 	}
 
-	if !bMyLevy {
-		ctx.JSON(http.StatusForbidden, &types.AttackResponse{
-			APIResponse: types.NewAPIResponse(false, "해당 부대에 대한 권한이 없습니다.", nil),
-		})
-		return
-	}
+	totalDurationHours := distance / levyOwnership.MovementSpeed
+	cd := util.CalculateCompletionDate(currentWorldTime, totalDurationHours)
 
 	arg3 := db.CreateLevyActionParams{
-		LevyID:       reqQuery.LevyID,
-		OriginSector: reqJson.OriginSector,
-		TargetSector: reqJson.TargetSector,
-		ActionType:   util.Attack,
-		Completed:    false,
-		StartedAt:    reqJson.StartedAt,
-		// NOTE: 현재 날짜로 test중
-		ExpectedCompletionAt: reqJson.CurrentWorldTime,
+		LevyID:               reqQuery.LevyID,
+		OriginSector:         levyOwnership.Encampment,
+		TargetSector:         reqJson.TargetSector,
+		ActionType:           util.Attack,
+		Completed:            false,
+		StartedAt:            currentWorldTime,
+		ExpectedCompletionAt: cd,
 	}
 
 	err = r.levyActionService.ExecuteLevyAction(ctx, &arg3)
@@ -150,6 +175,142 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, &types.AttackResponse{
+		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
+	})
+}
+
+func (r *levyActionRouter) move(ctx *gin.Context) {
+	var reqJson types.MoveJsonRequest
+	if err := ctx.ShouldBindJSON(&reqJson); err != nil {
+		ctx.JSON(http.StatusBadRequest, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "올바르지 않은 요청 데이터입니다.", err.Error()),
+		})
+		return
+	}
+	var reqQuery types.MoveQueryRequest
+	if err := ctx.ShouldBindQuery(&reqQuery); err != nil {
+		ctx.JSON(http.StatusBadRequest, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "올바르지 않은 요청 데이터입니다.", err.Error()),
+		})
+		return
+	}
+
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+
+	me, err := r.realmMemberService.FindRealmMember(ctx, authPayload.UserId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.MoveResponse{
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	if !me.RealmID.Valid {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "소속된 국가가 없습니다.", nil),
+		})
+		return
+	}
+
+	levyOwnership, err := r.levyService.FindLevyInfoWithAuthority(ctx, reqQuery.LevyID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.MoveResponse{
+				APIResponse: types.NewAPIResponse(false, "존재하지 않는 부대입니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	if levyOwnership.RealmID != me.RealmID {
+		ctx.JSON(http.StatusForbidden, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "다른 국가의 군부대에 명령을 내릴 수 없습니다.", nil),
+		})
+		return
+	}
+
+	if !levyOwnership.MoveUnit {
+		ctx.JSON(http.StatusForbidden, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "주둔지 이동 명령을 내릴 수 있는 권한이 없습니다.", nil),
+		})
+		return
+	}
+
+	currentWorldTime := util.CalculateCurrentWorldTime(util.StandardRealTime, util.StandardWorldTime)
+	arg1 := db.FindLevyActionCountByLevyIdParams{
+		LevyID:        reqQuery.LevyID,
+		ReferenceDate: currentWorldTime,
+	}
+
+	levyActionCount, err := r.levyActionService.FindLevyActionByLevyId(ctx, &arg1)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	if levyActionCount != 0 {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "이미 이동중인 부대입니다.", nil),
+		})
+		return
+	}
+
+	err = r.sectorService.CheckOriginTargetSectorValidForMove(ctx, me.RealmID.Int64, reqJson.TargetSector)
+	if err != nil {
+		if txError, ok := err.(*errors.TxError); ok {
+			ctx.JSON(txError.Code, &types.MoveResponse{
+				APIResponse: types.NewAPIResponse(false, txError.Message, txError.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	distance, err := r.rpcClient.GetDistance(levyOwnership.Encampment, reqJson.TargetSector)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	totalDurationHours := distance / levyOwnership.MovementSpeed
+	cd := util.CalculateCompletionDate(currentWorldTime, totalDurationHours)
+
+	arg3 := db.CreateLevyActionParams{
+		LevyID:               reqQuery.LevyID,
+		OriginSector:         levyOwnership.Encampment,
+		TargetSector:         reqJson.TargetSector,
+		ActionType:           util.Move,
+		Completed:            false,
+		StartedAt:            currentWorldTime,
+		ExpectedCompletionAt: cd,
+	}
+
+	err = r.levyActionService.ExecuteLevyAction(ctx, &arg3)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, &types.MoveResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, &types.MoveResponse{
 		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
 	})
 }

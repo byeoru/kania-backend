@@ -76,11 +76,22 @@ type LevySurrender struct {
 	CreatedAt                 time.Time `json:"created_at"`
 }
 
+type MemberAuthority struct {
+	RmID          int64     `json:"rm_id"`
+	CreateUnit    bool      `json:"create_unit"`
+	ReinforceUnit bool      `json:"reinforce_unit"`
+	MoveUnit      bool      `json:"move_unit"`
+	AttackUnit    bool      `json:"attack_unit"`
+	PrivateTroops bool      `json:"private_troops"`
+	Census        bool      `json:"census"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type Realm struct {
 	RealmID              int64     `json:"realm_id"`
 	Name                 string    `json:"name"`
 	OwnerNickname        string    `json:"owner_nickname"`
-	RmID                 int64     `json:"rm_id"`
+	OwnerRmID            int64     `json:"owner_rm_id"`
 	Capitals             []int32   `json:"capitals"`
 	PoliticalEntity      string    `json:"political_entity"`
 	Color                string    `json:"color"`
@@ -92,11 +103,11 @@ type Realm struct {
 }
 
 type RealmMember struct {
-	RealmMemberID int64         `json:"realm_member_id"`
-	UserID        sql.NullInt64 `json:"user_id"`
-	Status        string        `json:"status"`
-	PrivateMoney  int32         `json:"private_money"`
-	CreatedAt     time.Time     `json:"created_at"`
+	RmID         sql.NullInt64 `json:"rm_id"`
+	RealmID      sql.NullInt64 `json:"realm_id"`
+	Status       string        `json:"status"`
+	PrivateMoney int32         `json:"private_money"`
+	CreatedAt    time.Time     `json:"created_at"`
 }
 
 type RealmSectorsJsonb struct {

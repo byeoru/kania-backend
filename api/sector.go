@@ -1,12 +1,14 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 	"sync"
 
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/token"
 	"github.com/byeoru/kania/types"
+	errors "github.com/byeoru/kania/types/error"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +18,8 @@ var (
 )
 
 type SectorRouter struct {
-	sectorService *service.SectorService
+	sectorService      *service.SectorService
+	realmMemberService *service.RealmMemberService
 }
 
 func NewSectorRouter(router *API) {
@@ -32,7 +35,7 @@ func NewSectorRouter(router *API) {
 func (r *SectorRouter) getPopulation(ctx *gin.Context) {
 	var req types.GetPopulationRequest
 	if err := ctx.ShouldBindUri(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, &types.EstablishARealmResponse{
+		ctx.JSON(http.StatusBadRequest, &types.GetPopulationResponse{
 			APIResponse: types.NewAPIResponse(false, "올바르지 않은 요청 데이터입니다.", err.Error()),
 		})
 		return
@@ -40,17 +43,37 @@ func (r *SectorRouter) getPopulation(ctx *gin.Context) {
 
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
-	pop, ok, err := r.sectorService.GetPopulationAndCheck(ctx, req.CellNumber, authPayload.UserId)
+	me, err := r.realmMemberService.FindFullRealmMember(ctx, authPayload.UserId)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.GetPopulationResponse{
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, &types.GetPopulationResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
 		})
 		return
 	}
 
-	if !ok {
-		ctx.JSON(http.StatusForbidden, &types.GetPopulationResponse{
-			APIResponse: types.NewAPIResponse(false, "해당 섹터에 대한 권한이 없습니다.", nil),
+	if !me.RealmMember.RealmID.Valid {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.GetPopulationResponse{
+			APIResponse: types.NewAPIResponse(false, "소속된 국가가 없습니다.", nil),
+		})
+		return
+	}
+
+	pop, err := r.sectorService.GetPopulationAndCheck(ctx, req.CellNumber, me.RealmMember.RealmID.Int64)
+	if err != nil {
+		if txErr, ok := err.(*errors.TxError); ok {
+			ctx.JSON(txErr.Code, &types.GetPopulationResponse{
+				APIResponse: types.NewAPIResponse(false, txErr.Message, txErr.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.GetPopulationResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
 		})
 		return
 	}

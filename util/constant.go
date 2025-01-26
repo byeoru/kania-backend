@@ -132,3 +132,5 @@ const (
 // world time
 var WorldTime time.Time
 var SpeedMultiplier = 60
+var StandardWorldTime time.Time
+var StandardRealTime time.Time

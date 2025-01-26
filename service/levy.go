@@ -78,10 +78,11 @@ func (s *LevyService) FormAUnit(ctx *gin.Context, myRealmId int64, levyArg *db.C
 	return levy, resultInfo, err
 }
 
-func (s *LevyService) IsMyLevy(ctx *gin.Context, userId int64, levyId int64) (bool, error) {
-	ownerId, err := s.store.GetOwnerIdByLevyId(ctx, levyId)
-	if err != nil {
-		return false, err
-	}
-	return ownerId == userId, nil
+func (s *LevyService) FindLevyInfoWithAuthority(ctx *gin.Context, levyId int64) (*db.FindLevyInfoWithAuthorityRow, error) {
+	return s.store.FindLevyInfoWithAuthority(ctx, levyId)
+}
+
+func (s *LevyService) FindOurRealmLevies(ctx *gin.Context, realmId int64) ([]*db.Levy, error) {
+	id := sql.NullInt64{Int64: realmId, Valid: true}
+	return s.store.FindOurRealmLevies(ctx, id)
 }

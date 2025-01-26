@@ -13,38 +13,39 @@ import (
 type Querier interface {
 	AddCapital(ctx context.Context, arg *AddCapitalParams) error
 	AddRealmSectorJsonb(ctx context.Context, arg *AddRealmSectorJsonbParams) error
-	CheckCellOwner(ctx context.Context, arg *CheckCellOwnerParams) (bool, error)
 	CreateConqueredNations(ctx context.Context, arg *CreateConqueredNationsParams) error
 	CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error)
 	CreateLevyAction(ctx context.Context, arg *CreateLevyActionParams) error
 	CreateLevySurrender(ctx context.Context, arg *CreateLevySurrenderParams) error
+	CreateMemberAuthority(ctx context.Context, arg *CreateMemberAuthorityParams) error
 	CreateRealm(ctx context.Context, arg *CreateRealmParams) (*Realm, error)
-	CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) (int64, error)
+	CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error
 	CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmSectorsJsonbParams) error
 	CreateSector(ctx context.Context, arg *CreateSectorParams) error
 	CreateUser(ctx context.Context, arg *CreateUserParams) error
 	CreateWorldTimeRecord(ctx context.Context, arg *CreateWorldTimeRecordParams) error
-	FindAllRealmsWithJsonExcludeMe(ctx context.Context, rmID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
+	FindAllRealmsWithJsonExcludeMe(ctx context.Context, realmID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
 	FindEncampmentLevies(ctx context.Context, arg *FindEncampmentLeviesParams) ([]*Levy, error)
+	FindFullRealmMember(ctx context.Context, rmID sql.NullInt64) (*FindFullRealmMemberRow, error)
 	FindIndigenousUnit(ctx context.Context, sectorNumber int32) (*IndigenousUnit, error)
 	FindLatestWorldTimeRecord(ctx context.Context) (*WorldTimeRecord, error)
+	FindLevy(ctx context.Context, levyID int64) (*Levy, error)
 	FindLevyAction(ctx context.Context, arg *FindLevyActionParams) (*LeviesAction, error)
 	FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevyActionCountByLevyIdParams) (int64, error)
 	FindLevyActionsBeforeDate(ctx context.Context, currentWorldTime time.Time) ([]*FindLevyActionsBeforeDateRow, error)
+	FindLevyInfoWithAuthority(ctx context.Context, levyID int64) (*FindLevyInfoWithAuthorityRow, error)
+	FindOurRealmLevies(ctx context.Context, realmID sql.NullInt64) ([]*Levy, error)
 	FindRealm(ctx context.Context, realmID int64) (*Realm, error)
-	FindRealmWithJson(ctx context.Context, rmID int64) (*FindRealmWithJsonRow, error)
+	FindRealmMember(ctx context.Context, rmID sql.NullInt64) (*RealmMember, error)
+	FindRealmWithJson(ctx context.Context, realmID int64) (*FindRealmWithJsonRow, error)
 	FindSectorRealmForUpdate(ctx context.Context, cellNumber int32) (*FindSectorRealmForUpdateRow, error)
 	FindUserByEmail(ctx context.Context, email string) (*User, error)
 	FindUserById(ctx context.Context, userID int64) (*User, error)
 	GetCensusAndPopulationGrowthRate(ctx context.Context, realmID int64) (*GetCensusAndPopulationGrowthRateRow, error)
-	GetMyRmIdOfSector(ctx context.Context, arg *GetMyRmIdOfSectorParams) (int64, error)
+	GetEncampmentOfMyLevy(ctx context.Context, arg *GetEncampmentOfMyLevyParams) (int32, error)
 	GetNumberOfRealmSectors(ctx context.Context, realmID int64) (int64, error)
-	GetOurRealmLevies(ctx context.Context, realmID int64) ([]*GetOurRealmLeviesRow, error)
-	GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, error)
 	GetPopulation(ctx context.Context, cellNumber int32) (*GetPopulationRow, error)
-	GetRealmId(ctx context.Context, rmID int64) (int64, error)
-	GetRealmIdByRmId(ctx context.Context, rmID int64) (sql.NullInt64, error)
-	GetRealmIdWithSector(ctx context.Context, arg *GetRealmIdWithSectorParams) (*GetRealmIdWithSectorRow, error)
+	GetRealmOwnerRmId(ctx context.Context, realmID int64) (int64, error)
 	GetSectorRealmId(ctx context.Context, cellNumber int32) (int64, error)
 	GetSectorRealmIdForUpdate(ctx context.Context, cellNumber int32) (int64, error)
 	InitIndigenousUnits(ctx context.Context) error

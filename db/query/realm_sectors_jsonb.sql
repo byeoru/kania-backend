@@ -9,8 +9,8 @@ INSERT INTO realm_sectors_jsonb (
 UPDATE realm_sectors_jsonb
 SET cells_jsonb = jsonb_set(
   cells_jsonb,
-  sqlc.arg(key)::varchar,  -- 배열을 수정할 키의 경로
-  sqlc.arg(value)::int  -- 배열에 새로운 요소 추가
+  sqlc.arg(key),  -- 키의 경로
+  to_jsonb(sqlc.arg(value)::int)  -- 새로운 요소 추가
 ) WHERE realm_sectors_jsonb_id = sqlc.arg(realm_id)::bigint;
 
 -- name: RemoveSectorJsonb :exec

@@ -43,7 +43,7 @@ func (q *Queries) CreateSector(ctx context.Context, arg *CreateSectorParams) err
 }
 
 const findSectorRealmForUpdate = `-- name: FindSectorRealmForUpdate :one
-SELECT s.cell_number, s.province_number, s.realm_id, s.rm_id, s.population, s.created_at, r.realm_id, r.name, r.owner_nickname, r.rm_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at FROM sectors AS S
+SELECT s.cell_number, s.province_number, s.realm_id, s.rm_id, s.population, s.created_at, r.realm_id, r.name, r.owner_nickname, r.owner_rm_id, r.capitals, r.political_entity, r.color, r.population_growth_rate, r.state_coffers, r.census_at, r.tax_collection_at, r.created_at FROM sectors AS S
 INNER JOIN realms AS R
 ON S.realm_id = R.realm_id
 WHERE cell_number = $1
@@ -68,7 +68,7 @@ func (q *Queries) FindSectorRealmForUpdate(ctx context.Context, cellNumber int32
 		&i.Realm.RealmID,
 		&i.Realm.Name,
 		&i.Realm.OwnerNickname,
-		&i.Realm.RmID,
+		&i.Realm.OwnerRmID,
 		pq.Array(&i.Realm.Capitals),
 		&i.Realm.PoliticalEntity,
 		&i.Realm.Color,

@@ -2,6 +2,7 @@ package types
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/byeoru/kania/util"
 	"github.com/go-playground/validator/v10"
@@ -19,6 +20,11 @@ func NewAPIResponse(result bool, description string, errorCode interface{}) *api
 		Description: description,
 		ErrorCode:   errorCode,
 	}
+}
+
+type StandardTimes struct {
+	StandardRealTime  time.Time `json:"standard_real_time"`
+	StandardWorldTime time.Time `json:"standard_world_time"`
 }
 
 var ValidPoliticalEntity validator.Func = func(fl validator.FieldLevel) bool {

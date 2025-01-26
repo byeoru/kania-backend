@@ -14,15 +14,15 @@ const addRealmSectorJsonb = `-- name: AddRealmSectorJsonb :exec
 UPDATE realm_sectors_jsonb
 SET cells_jsonb = jsonb_set(
   cells_jsonb,
-  $1::varchar,  -- 배열을 수정할 키의 경로
-  $2::int  -- 배열에 새로운 요소 추가
+  $1,  -- 키의 경로
+  to_jsonb($2::int)  -- 새로운 요소 추가
 ) WHERE realm_sectors_jsonb_id = $3::bigint
 `
 
 type AddRealmSectorJsonbParams struct {
-	Key     string `json:"key"`
-	Value   int32  `json:"value"`
-	RealmID int64  `json:"realm_id"`
+	Key     interface{} `json:"key"`
+	Value   int32       `json:"value"`
+	RealmID int64       `json:"realm_id"`
 }
 
 func (q *Queries) AddRealmSectorJsonb(ctx context.Context, arg *AddRealmSectorJsonbParams) error {

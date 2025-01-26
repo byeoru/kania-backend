@@ -28,4 +28,7 @@ sqlc:
 test:
 	make dropdb && make createdb && make migrateup && make sqlc && make server
 
-.PHONY: server postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test
+metadataproto:
+	protoc --go_out=. --go-grpc_out=. grpc_client/metadata/metadata.proto
+
+.PHONY: server postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test metadataproto

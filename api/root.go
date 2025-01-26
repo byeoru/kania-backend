@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	grpcclient "github.com/byeoru/kania/grpc_client"
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/types"
 	"github.com/gin-gonic/gin"
@@ -12,14 +13,16 @@ import (
 )
 
 type API struct {
-	engine  *gin.Engine
-	service *service.Service
+	engine     *gin.Engine
+	service    *service.Service
+	grpcClient *grpcclient.Client
 }
 
-func NewApi(service *service.Service) *API {
+func NewApi(service *service.Service, grpcClient *grpcclient.Client) *API {
 	r := &API{
-		engine:  gin.New(),
-		service: service,
+		engine:     gin.New(),
+		service:    service,
+		grpcClient: grpcClient,
 	}
 
 	// politicalEntity validator

@@ -77,7 +77,9 @@ func (q *Queries) FindLevyAction(ctx context.Context, arg *FindLevyActionParams)
 
 const findLevyActionCountByLevyId = `-- name: FindLevyActionCountByLevyId :one
 SELECT COUNT(*) FROM levies_actions
-WHERE levy_id = $1::bigint AND expected_completion_at < $2::timestamptz
+WHERE levy_id = $1::bigint 
+AND expected_completion_at < $2::timestamptz
+AND completed = false
 LIMIT 1
 `
 

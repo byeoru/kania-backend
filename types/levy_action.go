@@ -1,13 +1,7 @@
 package types
 
-import "time"
-
 type AttackJsonRequest struct {
-	OriginSector         int32     `json:"origin_sector" binding:"required,min=0"`
-	TargetSector         int32     `json:"target_sector" binding:"required,min=0"`
-	CurrentWorldTime     time.Time `json:"current_world_time" binding:"required"`
-	StartedAt            time.Time `json:"started_at" binding:"required"`
-	ExpectedCompletionAt time.Time `json:"expected_completion_at" binding:"required"`
+	TargetSector int32 `json:"target_sector" binding:"required,min=0"`
 }
 
 type AttackQueryRequest struct {
@@ -22,6 +16,14 @@ type BattlePathRequest struct {
 	LevyActionID int64 `uri:"levy_action_id" binding:"required,min=0"`
 }
 
-type BattleResponse struct {
+type MoveJsonRequest struct {
+	TargetSector int32 `json:"target_sector" binding:"required,min=0"`
+}
+
+type MoveQueryRequest struct {
+	LevyID int64 `form:"levy_id" binding:"required,min=0"`
+}
+
+type MoveResponse struct {
 	APIResponse *apiResponse `json:"api_response"`
 }

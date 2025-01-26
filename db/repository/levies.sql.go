@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const createLevy = `-- name: CreateLevy :one
@@ -22,24 +23,26 @@ INSERT INTO levies (
     lancers,
     supply_troop,
     movement_speed,
-    rm_id
+    rm_id,
+    realm_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 ) RETURNING levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, rm_id, realm_id, created_at
 `
 
 type CreateLevyParams struct {
-	Name          string  `json:"name"`
-	Morale        int16   `json:"morale"`
-	Stationed     bool    `json:"stationed"`
-	Encampment    int32   `json:"encampment"`
-	Swordmen      int32   `json:"swordmen"`
-	ShieldBearers int32   `json:"shield_bearers"`
-	Archers       int32   `json:"archers"`
-	Lancers       int32   `json:"lancers"`
-	SupplyTroop   int32   `json:"supply_troop"`
-	MovementSpeed float64 `json:"movement_speed"`
-	RmID          int64   `json:"rm_id"`
+	Name          string        `json:"name"`
+	Morale        int16         `json:"morale"`
+	Stationed     bool          `json:"stationed"`
+	Encampment    int32         `json:"encampment"`
+	Swordmen      int32         `json:"swordmen"`
+	ShieldBearers int32         `json:"shield_bearers"`
+	Archers       int32         `json:"archers"`
+	Lancers       int32         `json:"lancers"`
+	SupplyTroop   int32         `json:"supply_troop"`
+	MovementSpeed float64       `json:"movement_speed"`
+	RmID          int64         `json:"rm_id"`
+	RealmID       sql.NullInt64 `json:"realm_id"`
 }
 
 func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error) {
@@ -55,6 +58,7 @@ func (q *Queries) CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy,
 		arg.SupplyTroop,
 		arg.MovementSpeed,
 		arg.RmID,
+		arg.RealmID,
 	)
 	var i Levy
 	err := row.Scan(
@@ -124,17 +128,136 @@ func (q *Queries) FindEncampmentLevies(ctx context.Context, arg *FindEncampmentL
 	return items, nil
 }
 
-const getOwnerIdByLevyId = `-- name: GetOwnerIdByLevyId :one
-SELECT rm_id FROM levies
+const findLevy = `-- name: FindLevy :one
+SELECT levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, rm_id, realm_id, created_at FROM levies
 WHERE levy_id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetOwnerIdByLevyId(ctx context.Context, levyID int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getOwnerIdByLevyId, levyID)
-	var rm_id int64
-	err := row.Scan(&rm_id)
-	return rm_id, err
+func (q *Queries) FindLevy(ctx context.Context, levyID int64) (*Levy, error) {
+	row := q.db.QueryRowContext(ctx, findLevy, levyID)
+	var i Levy
+	err := row.Scan(
+		&i.LevyID,
+		&i.Stationed,
+		&i.Name,
+		&i.Morale,
+		&i.Encampment,
+		&i.Swordmen,
+		&i.ShieldBearers,
+		&i.Archers,
+		&i.Lancers,
+		&i.SupplyTroop,
+		&i.MovementSpeed,
+		&i.RmID,
+		&i.RealmID,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const findLevyInfoWithAuthority = `-- name: FindLevyInfoWithAuthority :one
+SELECT L.encampment, L.movement_speed, RM.realm_id, ma.rm_id, ma.create_unit, ma.reinforce_unit, ma.move_unit, ma.attack_unit, ma.private_troops, ma.census, ma.created_at
+FROM levies AS L
+INNER JOIN realm_members AS RM
+ON L.rm_id = RM.rm_id
+INNER JOIN member_authorities AS MA
+ON RM.rm_id = MA.rm_id
+WHERE L.levy_id = $1
+LIMIT 1
+`
+
+type FindLevyInfoWithAuthorityRow struct {
+	Encampment    int32         `json:"encampment"`
+	MovementSpeed float64       `json:"movement_speed"`
+	RealmID       sql.NullInt64 `json:"realm_id"`
+	RmID          int64         `json:"rm_id"`
+	CreateUnit    bool          `json:"create_unit"`
+	ReinforceUnit bool          `json:"reinforce_unit"`
+	MoveUnit      bool          `json:"move_unit"`
+	AttackUnit    bool          `json:"attack_unit"`
+	PrivateTroops bool          `json:"private_troops"`
+	Census        bool          `json:"census"`
+	CreatedAt     time.Time     `json:"created_at"`
+}
+
+func (q *Queries) FindLevyInfoWithAuthority(ctx context.Context, levyID int64) (*FindLevyInfoWithAuthorityRow, error) {
+	row := q.db.QueryRowContext(ctx, findLevyInfoWithAuthority, levyID)
+	var i FindLevyInfoWithAuthorityRow
+	err := row.Scan(
+		&i.Encampment,
+		&i.MovementSpeed,
+		&i.RealmID,
+		&i.RmID,
+		&i.CreateUnit,
+		&i.ReinforceUnit,
+		&i.MoveUnit,
+		&i.AttackUnit,
+		&i.PrivateTroops,
+		&i.Census,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const findOurRealmLevies = `-- name: FindOurRealmLevies :many
+SELECT levy_id, stationed, name, morale, encampment, swordmen, shield_bearers, archers, lancers, supply_troop, movement_speed, rm_id, realm_id, created_at FROM levies
+WHERE realm_id = $1
+`
+
+func (q *Queries) FindOurRealmLevies(ctx context.Context, realmID sql.NullInt64) ([]*Levy, error) {
+	rows, err := q.db.QueryContext(ctx, findOurRealmLevies, realmID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*Levy{}
+	for rows.Next() {
+		var i Levy
+		if err := rows.Scan(
+			&i.LevyID,
+			&i.Stationed,
+			&i.Name,
+			&i.Morale,
+			&i.Encampment,
+			&i.Swordmen,
+			&i.ShieldBearers,
+			&i.Archers,
+			&i.Lancers,
+			&i.SupplyTroop,
+			&i.MovementSpeed,
+			&i.RmID,
+			&i.RealmID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getEncampmentOfMyLevy = `-- name: GetEncampmentOfMyLevy :one
+SELECT encampment FROM levies
+WHERE levy_id = $1 AND rm_id = $2 LIMIT 1
+`
+
+type GetEncampmentOfMyLevyParams struct {
+	LevyID int64 `json:"levy_id"`
+	RmID   int64 `json:"rm_id"`
+}
+
+func (q *Queries) GetEncampmentOfMyLevy(ctx context.Context, arg *GetEncampmentOfMyLevyParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, getEncampmentOfMyLevy, arg.LevyID, arg.RmID)
+	var encampment int32
+	err := row.Scan(&encampment)
+	return encampment, err
 }
 
 const removeLevy = `-- name: RemoveLevy :exec
@@ -170,7 +293,8 @@ shield_bearers = $4,
 archers = $5,
 lancers = $6,
 supply_troop = $7,
-movement_speed = $8
+movement_speed = $8,
+stationed = $9
 WHERE levy_id = $1
 `
 
@@ -183,6 +307,7 @@ type UpdateLevyParams struct {
 	Lancers       int32   `json:"lancers"`
 	SupplyTroop   int32   `json:"supply_troop"`
 	MovementSpeed float64 `json:"movement_speed"`
+	Stationed     bool    `json:"stationed"`
 }
 
 func (q *Queries) UpdateLevy(ctx context.Context, arg *UpdateLevyParams) error {
@@ -195,6 +320,7 @@ func (q *Queries) UpdateLevy(ctx context.Context, arg *UpdateLevyParams) error {
 		arg.Lancers,
 		arg.SupplyTroop,
 		arg.MovementSpeed,
+		arg.Stationed,
 	)
 	return err
 }

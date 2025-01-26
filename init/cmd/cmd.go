@@ -14,6 +14,7 @@ import (
 	"github.com/byeoru/kania/config"
 	"github.com/byeoru/kania/cron"
 	db "github.com/byeoru/kania/db/repository"
+	grpcclient "github.com/byeoru/kania/grpc_client"
 	"github.com/byeoru/kania/service"
 	"github.com/byeoru/kania/token"
 	"github.com/byeoru/kania/util"
@@ -26,6 +27,9 @@ type Cmd struct {
 }
 
 func NewCmd(filePath string) *Cmd {
+	// grpc client 생성
+	grpcClient := grpcclient.NewClient()
+
 	c := new(Cmd)
 	config.LoadConfig(filePath)
 	config := config.GetInstance()
@@ -43,8 +47,8 @@ func NewCmd(filePath string) *Cmd {
 		log.Fatal(err)
 	}
 
-	c.service = service.NewService(store)
-	c.api = api.NewApi(c.service)
+	c.service = service.NewService(store, grpcClient)
+	c.api = api.NewApi(c.service, grpcClient)
 	c.cron = cron.NewCron(c.service)
 
 	/**
@@ -67,7 +71,10 @@ func NewCmd(filePath string) *Cmd {
 
 	// 종료 전에 실행할 함수 호출
 	ticker.Stop()
-	c.cron.LevyActionCron.RecordWorldTime(&ctx, util.WorldTime)
+	currentWorldTime := util.CalculateCurrentWorldTime(util.StandardRealTime, util.StandardWorldTime)
+	c.cron.LevyActionCron.RecordWorldTime(&ctx, currentWorldTime)
+	conn.Close()
+	grpcClient.Conn.Close()
 
 	fmt.Println("Server exiting")
 	return c

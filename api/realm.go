@@ -127,7 +127,7 @@ func (r *realmRouter) executeCensus(ctx *gin.Context) {
 
 	if !me.MemberAuthority.Census {
 		ctx.JSON(http.StatusForbidden, &types.ExecuteCensusResponse{
-			APIResponse: types.NewAPIResponse(false, "인구조사 권한이 없습니다.", err.Error()),
+			APIResponse: types.NewAPIResponse(false, "인구조사 권한이 없습니다.", nil),
 		})
 		return
 	}

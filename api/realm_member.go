@@ -22,6 +22,7 @@ type realmMemberRouter struct {
 	realmMemberService *service.RealmMemberService
 	realmService       *service.RealmService
 	levyService        *service.LevyService
+	levyActionService  *service.LevyActionService
 }
 
 func NewRealmMemberRouter(router *API) {
@@ -30,11 +31,12 @@ func NewRealmMemberRouter(router *API) {
 			realmMemberService: router.service.RealmMemberService,
 			realmService:       router.service.RealmService,
 			levyService:        router.service.LevyService,
+			levyActionService:  router.service.LevyActionService,
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
 	authRoutes.GET("/api/realm_members/realms", realmMemberRouterInstance.getMeAndOthersReams)
-	authRoutes.GET("/api/realm_members/levies", realmMemberRouterInstance.getOurRealmLevies)
+	authRoutes.GET("/api/realm_members/levies", realmMemberRouterInstance.getOurRealmLeviesWithActions)
 }
 
 func (r *realmMemberRouter) getMeAndOthersReams(ctx *gin.Context) {
@@ -54,22 +56,18 @@ func (r *realmMemberRouter) getMeAndOthersReams(ctx *gin.Context) {
 		return
 	}
 
-	if !me.RealmID.Valid {
-		ctx.JSON(http.StatusUnprocessableEntity, &types.GetMeAndOthersReamsResponse{
-			APIResponse: types.NewAPIResponse(false, "소속된 국가가 없습니다.", nil),
-		})
-		return
+	var myRealm *db.FindRealmWithJsonRow = nil
+	if me.RealmID.Valid {
+		myRealm, err = r.realmService.FindMyRealm(ctx, me.RealmID.Int64)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, &types.GetMeAndOthersReamsResponse{
+				APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+			})
+			return
+		}
 	}
 
-	myRealms, err := r.realmMemberService.FindMyRealm(ctx, me.RealmID.Int64)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, &types.GetMeAndOthersReamsResponse{
-			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
-		})
-		return
-	}
-
-	theOthersRealms, err := r.realmMemberService.FindAllRealmExcludeMe(ctx, me.RealmID.Int64)
+	theOthersRealms, err := r.realmService.FindAllRealmExcludeMe(ctx, me.RealmID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, &types.GetMeAndOthersReamsResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
@@ -83,14 +81,15 @@ func (r *realmMemberRouter) getMeAndOthersReams(ctx *gin.Context) {
 			StandardRealTime:  util.StandardRealTime,
 			StandardWorldTime: util.StandardWorldTime,
 		},
-		MyRealm: types.ToMyRealmResponse(myRealms),
+		RmId:    me.RmID,
+		MyRealm: types.ToMyRealmResponse(myRealm),
 		TheOthersRealms: util.Map(theOthersRealms, func(realm *db.FindAllRealmsWithJsonExcludeMeRow) *types.RealmResponse {
 			return types.ToTheOthersRealmsResponse(realm)
 		}),
 	})
 }
 
-func (r *realmMemberRouter) getOurRealmLevies(ctx *gin.Context) {
+func (r *realmMemberRouter) getOurRealmLeviesWithActions(ctx *gin.Context) {
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
 	me, err := r.realmMemberService.FindFullRealmMember(ctx, authPayload.UserId)
@@ -122,8 +121,19 @@ func (r *realmMemberRouter) getOurRealmLevies(ctx *gin.Context) {
 		return
 	}
 
+	actions, err := r.levyActionService.FindOnGoingMyRealmActions(ctx, me.RealmMember.RealmID.Int64)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, &types.GetRealmMembersLeviesResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, &types.GetRealmMembersLeviesResponse{
 		APIResponse: types.NewAPIResponse(true, "요청이 성공적으로 완료되었습니다.", nil),
 		RealmLevies: types.ToRealmLevies(levies),
+		LevyActions: util.Map(actions, func(action *db.LeviesAction) *types.LevyActionResponse {
+			return types.ToLevyActionResponse(action)
+		}),
 	})
 }

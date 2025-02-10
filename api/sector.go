@@ -25,7 +25,8 @@ type SectorRouter struct {
 func NewSectorRouter(router *API) {
 	sectorRouterInit.Do(func() {
 		sectorRouterInstance = &SectorRouter{
-			sectorService: router.service.SectorService,
+			sectorService:      router.service.SectorService,
+			realmMemberService: router.service.RealmMemberService,
 		}
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))

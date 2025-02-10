@@ -18,3 +18,10 @@ FROM realm_members AS RM
 INNER JOIN member_authorities AS MA
 ON RM.rm_id = MA.rm_id
 WHERE RM.rm_id = $1 LIMIT 1;
+
+-- name: UpdateRealmMember :exec 
+UPDATE realm_members
+SET realm_id = $2,
+status = $3,
+private_money = $4
+WHERE rm_id = $1;

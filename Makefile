@@ -31,4 +31,7 @@ test:
 metadataproto:
 	protoc --go_out=. --go-grpc_out=. grpc_client/metadata/metadata.proto
 
-.PHONY: server postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test metadataproto
+updatesproto:
+	protoc --go_out=. --go-grpc_out=. grpc_client/updates/updates.proto
+
+.PHONY: server postgres createdb dropdb migrateup migrateup1 migratedown migratedown1 sqlc test metadataproto updatesproto

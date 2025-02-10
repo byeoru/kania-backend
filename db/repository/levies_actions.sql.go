@@ -10,62 +10,79 @@ import (
 	"time"
 )
 
-const createLevyAction = `-- name: CreateLevyAction :exec
+const createLevyAction = `-- name: CreateLevyAction :one
 INSERT INTO levies_actions (
    levy_id,
+   realm_id,
    origin_sector,
    target_sector, 
+   distance,
    action_type,
    completed, 
    started_at,
    expected_completion_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING levy_action_id, levy_id, origin_sector, target_sector, action_type, completed, started_at, expected_completion_at, created_at
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
+) RETURNING levy_action_id, levy_id, realm_id, origin_sector, target_sector, distance, action_type, completed, started_at, expected_completion_at, created_at
 `
 
 type CreateLevyActionParams struct {
 	LevyID               int64     `json:"levy_id"`
+	RealmID              int64     `json:"realm_id"`
 	OriginSector         int32     `json:"origin_sector"`
 	TargetSector         int32     `json:"target_sector"`
+	Distance             float64   `json:"distance"`
 	ActionType           string    `json:"action_type"`
 	Completed            bool      `json:"completed"`
 	StartedAt            time.Time `json:"started_at"`
 	ExpectedCompletionAt time.Time `json:"expected_completion_at"`
 }
 
-func (q *Queries) CreateLevyAction(ctx context.Context, arg *CreateLevyActionParams) error {
-	_, err := q.db.ExecContext(ctx, createLevyAction,
+func (q *Queries) CreateLevyAction(ctx context.Context, arg *CreateLevyActionParams) (*LeviesAction, error) {
+	row := q.db.QueryRowContext(ctx, createLevyAction,
 		arg.LevyID,
+		arg.RealmID,
 		arg.OriginSector,
 		arg.TargetSector,
+		arg.Distance,
 		arg.ActionType,
 		arg.Completed,
 		arg.StartedAt,
 		arg.ExpectedCompletionAt,
 	)
-	return err
-}
-
-const findLevyAction = `-- name: FindLevyAction :one
-SELECT levy_action_id, levy_id, origin_sector, target_sector, action_type, completed, started_at, expected_completion_at, created_at FROM levies_actions
-WHERE levy_action_id = $1 AND action_type = $2
-LIMIT 1
-`
-
-type FindLevyActionParams struct {
-	LevyActionID int64  `json:"levy_action_id"`
-	ActionType   string `json:"action_type"`
-}
-
-func (q *Queries) FindLevyAction(ctx context.Context, arg *FindLevyActionParams) (*LeviesAction, error) {
-	row := q.db.QueryRowContext(ctx, findLevyAction, arg.LevyActionID, arg.ActionType)
 	var i LeviesAction
 	err := row.Scan(
 		&i.LevyActionID,
 		&i.LevyID,
+		&i.RealmID,
 		&i.OriginSector,
 		&i.TargetSector,
+		&i.Distance,
+		&i.ActionType,
+		&i.Completed,
+		&i.StartedAt,
+		&i.ExpectedCompletionAt,
+		&i.CreatedAt,
+	)
+	return &i, err
+}
+
+const findLevyActionByLevyId = `-- name: FindLevyActionByLevyId :one
+SELECT levy_action_id, levy_id, realm_id, origin_sector, target_sector, distance, action_type, completed, started_at, expected_completion_at, created_at FROM levies_actions
+WHERE levy_id = $1 AND completed = false
+LIMIT 1
+`
+
+func (q *Queries) FindLevyActionByLevyId(ctx context.Context, levyID int64) (*LeviesAction, error) {
+	row := q.db.QueryRowContext(ctx, findLevyActionByLevyId, levyID)
+	var i LeviesAction
+	err := row.Scan(
+		&i.LevyActionID,
+		&i.LevyID,
+		&i.RealmID,
+		&i.OriginSector,
+		&i.TargetSector,
+		&i.Distance,
 		&i.ActionType,
 		&i.Completed,
 		&i.StartedAt,
@@ -96,7 +113,7 @@ func (q *Queries) FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevy
 }
 
 const findLevyActionsBeforeDate = `-- name: FindLevyActionsBeforeDate :many
-SELECT l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.rm_id, l.realm_id, l.created_at, la.levy_action_id, la.levy_id, la.origin_sector, la.target_sector, la.action_type, la.completed, la.started_at, la.expected_completion_at, la.created_at FROM levies_actions AS LA
+SELECT l.levy_id, l.stationed, l.name, l.morale, l.encampment, l.swordmen, l.shield_bearers, l.archers, l.lancers, l.supply_troop, l.movement_speed, l.rm_id, l.realm_id, l.created_at, la.levy_action_id, la.levy_id, la.realm_id, la.origin_sector, la.target_sector, la.distance, la.action_type, la.completed, la.started_at, la.expected_completion_at, la.created_at FROM levies_actions AS LA
 LEFT JOIN levies AS L
 ON LA.levy_id = L.levy_id
 WHERE LA.expected_completion_at <= $1::timestamptz
@@ -135,13 +152,55 @@ func (q *Queries) FindLevyActionsBeforeDate(ctx context.Context, currentWorldTim
 			&i.Levy.CreatedAt,
 			&i.LeviesAction.LevyActionID,
 			&i.LeviesAction.LevyID,
+			&i.LeviesAction.RealmID,
 			&i.LeviesAction.OriginSector,
 			&i.LeviesAction.TargetSector,
+			&i.LeviesAction.Distance,
 			&i.LeviesAction.ActionType,
 			&i.LeviesAction.Completed,
 			&i.LeviesAction.StartedAt,
 			&i.LeviesAction.ExpectedCompletionAt,
 			&i.LeviesAction.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findOnGoingMyRealmActions = `-- name: FindOnGoingMyRealmActions :many
+SELECT levy_action_id, levy_id, realm_id, origin_sector, target_sector, distance, action_type, completed, started_at, expected_completion_at, created_at FROM levies_actions
+WHERE realm_id = $1 AND completed = false
+`
+
+func (q *Queries) FindOnGoingMyRealmActions(ctx context.Context, realmID int64) ([]*LeviesAction, error) {
+	rows, err := q.db.QueryContext(ctx, findOnGoingMyRealmActions, realmID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*LeviesAction{}
+	for rows.Next() {
+		var i LeviesAction
+		if err := rows.Scan(
+			&i.LevyActionID,
+			&i.LevyID,
+			&i.RealmID,
+			&i.OriginSector,
+			&i.TargetSector,
+			&i.Distance,
+			&i.ActionType,
+			&i.Completed,
+			&i.StartedAt,
+			&i.ExpectedCompletionAt,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

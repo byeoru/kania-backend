@@ -22,7 +22,7 @@ INSERT INTO realm_members (
 `
 
 type CreateRealmMemberParams struct {
-	RmID         sql.NullInt64 `json:"rm_id"`
+	RmID         int64         `json:"rm_id"`
 	RealmID      sql.NullInt64 `json:"realm_id"`
 	Status       string        `json:"status"`
 	PrivateMoney int32         `json:"private_money"`
@@ -51,7 +51,7 @@ type FindFullRealmMemberRow struct {
 	MemberAuthority MemberAuthority `json:"member_authority"`
 }
 
-func (q *Queries) FindFullRealmMember(ctx context.Context, rmID sql.NullInt64) (*FindFullRealmMemberRow, error) {
+func (q *Queries) FindFullRealmMember(ctx context.Context, rmID int64) (*FindFullRealmMemberRow, error) {
 	row := q.db.QueryRowContext(ctx, findFullRealmMember, rmID)
 	var i FindFullRealmMemberRow
 	err := row.Scan(
@@ -77,7 +77,7 @@ SELECT rm_id, realm_id, status, private_money, created_at FROM realm_members
 WHERE rm_id = $1 LIMIT 1
 `
 
-func (q *Queries) FindRealmMember(ctx context.Context, rmID sql.NullInt64) (*RealmMember, error) {
+func (q *Queries) FindRealmMember(ctx context.Context, rmID int64) (*RealmMember, error) {
 	row := q.db.QueryRowContext(ctx, findRealmMember, rmID)
 	var i RealmMember
 	err := row.Scan(
@@ -88,4 +88,29 @@ func (q *Queries) FindRealmMember(ctx context.Context, rmID sql.NullInt64) (*Rea
 		&i.CreatedAt,
 	)
 	return &i, err
+}
+
+const updateRealmMember = `-- name: UpdateRealmMember :exec
+UPDATE realm_members
+SET realm_id = $2,
+status = $3,
+private_money = $4
+WHERE rm_id = $1
+`
+
+type UpdateRealmMemberParams struct {
+	RmID         int64         `json:"rm_id"`
+	RealmID      sql.NullInt64 `json:"realm_id"`
+	Status       string        `json:"status"`
+	PrivateMoney int32         `json:"private_money"`
+}
+
+func (q *Queries) UpdateRealmMember(ctx context.Context, arg *UpdateRealmMemberParams) error {
+	_, err := q.db.ExecContext(ctx, updateRealmMember,
+		arg.RmID,
+		arg.RealmID,
+		arg.Status,
+		arg.PrivateMoney,
+	)
+	return err
 }

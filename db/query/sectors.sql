@@ -35,8 +35,7 @@ FOR UPDATE;
 
 -- name: UpdateSectorOwnership :exec
 UPDATE sectors
-SET realm_id = $2
-AND rm_id = $3
+SET realm_id = $2, rm_id = $3
 WHERE cell_number = $1;
 
 -- name: UpdateSectorToIndigenous :exec

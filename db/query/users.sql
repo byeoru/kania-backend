@@ -1,11 +1,11 @@
--- name: CreateUser :exec
+-- name: CreateUser :one
 INSERT INTO users (
     email,
     hashed_password,
     nickname
 ) VALUES (
     $1, $2, $3
-);
+) RETURNING user_id;
 
 -- name: FindUserByEmail :one
 SELECT * FROM users

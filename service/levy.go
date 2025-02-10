@@ -86,3 +86,11 @@ func (s *LevyService) FindOurRealmLevies(ctx *gin.Context, realmId int64) ([]*db
 	id := sql.NullInt64{Int64: realmId, Valid: true}
 	return s.store.FindOurRealmLevies(ctx, id)
 }
+
+func (s *LevyService) FindLevy(ctx *gin.Context, levyId int64) (*db.Levy, error) {
+	return s.store.FindLevy(ctx, levyId)
+}
+
+func (s *LevyService) FindEncampmentLevies(ctx *gin.Context, arg *db.FindEncampmentLeviesParams) ([]*db.Levy, error) {
+	return s.store.FindEncampmentLevies(ctx, arg)
+}

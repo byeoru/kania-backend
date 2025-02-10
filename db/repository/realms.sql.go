@@ -294,8 +294,8 @@ func (q *Queries) UpdateCensusAt(ctx context.Context, arg *UpdateCensusAtParams)
 
 const updateRealmPoliticalEntityAndRemoveCapital = `-- name: UpdateRealmPoliticalEntityAndRemoveCapital :exec
 UPDATE realms
-SET political_entity = $1::varchar 
-AND capitals = array_remove(capitals, $2::int)
+SET political_entity = $1::varchar,
+capitals = array_remove(capitals, $2::int)
 WHERE realm_id = $3::bigint
 `
 

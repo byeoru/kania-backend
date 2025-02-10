@@ -15,5 +15,5 @@ SET cells_jsonb = jsonb_set(
 
 -- name: RemoveSectorJsonb :exec
 UPDATE realm_sectors_jsonb
-SET cells_jsonb = cells_jsonb - sqlc.arg(cell_number)::int
+SET cells_jsonb = cells_jsonb - sqlc.arg(key)::varchar
 WHERE realm_sectors_jsonb_id = sqlc.arg(realm_id)::bigint;

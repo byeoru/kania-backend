@@ -8,7 +8,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/byeoru/kania/grpc_client/metadata"
+	metadataPb "github.com/byeoru/kania/grpc_client/metadata"
+	updatesPb "github.com/byeoru/kania/grpc_client/updates"
 )
 
 var (
@@ -18,8 +19,9 @@ var (
 )
 
 type Client struct {
-	Conn          *grpc.ClientConn
-	MapDataClient pb.MapDataClient
+	Conn                  *grpc.ClientConn
+	MapDataClient         metadataPb.MapDataClient
+	RealtimeUpdatesClient updatesPb.RealtimeUpdatesClient
 }
 
 func NewClient() *Client {
@@ -30,11 +32,13 @@ func NewClient() *Client {
 		if err != nil {
 			log.Fatalf("did not connect: %v", err)
 		}
-		c := pb.NewMapDataClient(conn)
+		mc := metadataPb.NewMapDataClient(conn)
+		rc := updatesPb.NewRealtimeUpdatesClient(conn)
 
 		clientInstance = &Client{
-			Conn:          conn,
-			MapDataClient: c,
+			Conn:                  conn,
+			MapDataClient:         mc,
+			RealtimeUpdatesClient: rc,
 		}
 	})
 	return clientInstance

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "grpc_client/updates";
+
+package updates;
+
+import "google/protobuf/empty.proto";
+
+service RealtimeUpdates {
+  rpc UpdateSectorOwnership (UpdateSectorOwnershipRequest) returns (google.protobuf.Empty) {}
+}
+
+message UpdateSectorOwnershipRequest {
+  int32 sector = 1;
+  int64 oldRealmId = 2;
+  int64 newRealmId = 3;
+  string actionType = 4;
+  int64 actionId = 5;
+}

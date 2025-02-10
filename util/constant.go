@@ -90,9 +90,10 @@ const (
 
 // 부대 행동
 const (
-	Attack = "Attack" // 공격
-	Move   = "Move"   // 주둔지 이동
-	Return = "Return" // 전투 후 복귀
+	Attack    = "Attack"    // 공격
+	Move      = "Move"      // 주둔지 이동
+	Return    = "Return"    // 전투 후 복귀
+	Recapture = "Recapture" // 수복
 )
 
 type PoliticalEntity string
@@ -122,6 +123,7 @@ const (
 	Monarch  = "Monarch"  // 왕, 황제
 	Courtier = "Courtier" // 신하
 	General  = "General"  // 장군
+	None     = "None"     // 미정
 )
 
 // 투항 이유

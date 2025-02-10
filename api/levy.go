@@ -37,6 +37,8 @@ func NewLevyRouter(router *API) {
 	})
 	authRoutes := router.engine.Group("/").Use(authMiddleware(token.GetTokenMakerInstance()))
 	authRoutes.POST("/api/levies", levyRouterInstance.createLevy)
+	authRoutes.GET("/api/levies/:levy_id", levyRouterInstance.findMyLevy)
+	authRoutes.GET("/api/levies", levyRouterInstance.getSectorLevies)
 }
 
 func (r *levyRouter) createLevy(ctx *gin.Context) {
@@ -65,7 +67,7 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 	}
 
 	if !me.RealmMember.RealmID.Valid {
-		ctx.JSON(http.StatusUnprocessableEntity, &types.GetIndigenousUnitResponse{
+		ctx.JSON(http.StatusUnprocessableEntity, &types.CreateLevyResponse{
 			APIResponse: types.NewAPIResponse(false, "소속된 국가가 없습니다.", nil),
 		})
 		return
@@ -157,5 +159,114 @@ func (r *levyRouter) createLevy(ctx *gin.Context) {
 			RealmID: me.RealmMember.RealmID.Int64,
 			RmID:    levyRmId,
 		},
+	})
+}
+
+func (r *levyRouter) findMyLevy(ctx *gin.Context) {
+	var reqPath types.FindMyLevyPathRequest
+	if err := ctx.ShouldBindUri(&reqPath); err != nil {
+		ctx.JSON(http.StatusBadRequest, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "올바르지 않은 요청 데이터입니다.", err.Error()),
+		})
+		return
+	}
+
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+
+	me, err := r.realmMemberService.FindFullRealmMember(ctx, authPayload.UserId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.FindMyLevyResponse{
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	levy, err := r.levyService.FindLevy(ctx, reqPath.LevyID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.FindMyLevyResponse{
+				APIResponse: types.NewAPIResponse(false, "부대 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	if !levy.RealmID.Valid {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "부대가 소속된 국가가 존재하지 않습니다.", nil),
+		})
+		return
+	}
+
+	if !me.RealmMember.RealmID.Valid {
+		ctx.JSON(http.StatusUnprocessableEntity, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "유저가 소속된 국가가 존재하지 않습니다.", nil),
+		})
+		return
+	}
+
+	if levy.RealmID.Int64 != me.RealmMember.RealmID.Int64 {
+		ctx.JSON(http.StatusBadRequest, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "유저가 소속된 국가가 존재하지 않습니다.", nil),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, &types.FindMyLevyResponse{
+		APIResponse: types.NewAPIResponse(false, "요청이 성공적으로 완료되었습니다.", nil),
+		RealmLevy:   types.ToRealmLevies([]*db.Levy{levy})[0],
+	})
+}
+
+func (r *levyRouter) getSectorLevies(ctx *gin.Context) {
+	var reqQuery types.GetSectorLeviesQueryRequest
+	if err := ctx.ShouldBindQuery(&reqQuery); err != nil {
+		ctx.JSON(http.StatusBadRequest, &types.FindMyLevyResponse{
+			APIResponse: types.NewAPIResponse(false, "올바르지 않은 요청 데이터입니다.", err.Error()),
+		})
+		return
+	}
+
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+
+	me, err := r.realmMemberService.FindFullRealmMember(ctx, authPayload.UserId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.GetSectorLeviesResponse{
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, &types.GetSectorLeviesResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	arg := db.FindEncampmentLeviesParams{
+		RealmID:    me.RealmMember.RealmID,
+		Encampment: reqQuery.Sector,
+	}
+	levies, err := r.levyService.FindEncampmentLevies(ctx, &arg)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, &types.GetSectorLeviesResponse{
+			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, &types.GetSectorLeviesResponse{
+		APIResponse: types.NewAPIResponse(false, "요청이 성공적으로 완료되었습니다.", nil),
+		RealmLevies: types.ToRealmLevies(levies),
 	})
 }

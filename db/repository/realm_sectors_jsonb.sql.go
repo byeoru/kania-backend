@@ -50,16 +50,16 @@ func (q *Queries) CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmS
 
 const removeSectorJsonb = `-- name: RemoveSectorJsonb :exec
 UPDATE realm_sectors_jsonb
-SET cells_jsonb = cells_jsonb - $1::int
+SET cells_jsonb = cells_jsonb - $1::varchar
 WHERE realm_sectors_jsonb_id = $2::bigint
 `
 
 type RemoveSectorJsonbParams struct {
-	CellNumber int32 `json:"cell_number"`
-	RealmID    int64 `json:"realm_id"`
+	Key     string `json:"key"`
+	RealmID int64  `json:"realm_id"`
 }
 
 func (q *Queries) RemoveSectorJsonb(ctx context.Context, arg *RemoveSectorJsonbParams) error {
-	_, err := q.db.ExecContext(ctx, removeSectorJsonb, arg.CellNumber, arg.RealmID)
+	_, err := q.db.ExecContext(ctx, removeSectorJsonb, arg.Key, arg.RealmID)
 	return err
 }

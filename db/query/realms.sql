@@ -44,8 +44,8 @@ LIMIT 1;
 
 -- name: UpdateRealmPoliticalEntityAndRemoveCapital :exec 
 UPDATE realms
-SET political_entity = sqlc.arg(political_entity)::varchar 
-AND capitals = array_remove(capitals, sqlc.arg(remove_capital)::int)
+SET political_entity = sqlc.arg(political_entity)::varchar,
+capitals = array_remove(capitals, sqlc.arg(remove_capital)::int)
 WHERE realm_id = sqlc.arg(realm_id)::bigint;
 
 -- name: RemoveCapital :exec

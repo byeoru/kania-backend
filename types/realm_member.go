@@ -9,6 +9,7 @@ import (
 type GetRealmMembersLeviesResponse struct {
 	APIResponse *apiResponse           `json:"api_response"`
 	RealmLevies []*RealmLeviesResponse `json:"realm_levies"`
+	LevyActions []*LevyActionResponse  `json:"levy_actions"`
 }
 
 type LevyAffiliation struct {
@@ -31,7 +32,7 @@ func ToRealmLevies(rows []*db.Levy) []*RealmLeviesResponse {
 		if !row.RealmID.Valid {
 			continue
 		}
-		// 맵 키 생성 (UserID와 RealmID를 결합)
+		// 맵 키 생성 (RmID와 RealmID를 결합)
 		key := fmt.Sprintf("%d:%d", row.RealmID.Int64, row.RmID)
 
 		// Set에 없으면 ID 추가하고 초기화
@@ -63,6 +64,7 @@ type GetMyRealmsResponse struct {
 type GetMeAndOthersReamsResponse struct {
 	APIResponse     *apiResponse     `json:"api_response"`
 	StandardTimes   *StandardTimes   `json:"standard_times"`
+	RmId            int64            `json:"rm_id"`
 	MyRealm         *MyRealmResponse `json:"my_realm"`
 	TheOthersRealms []*RealmResponse `json:"the_others_realms"`
 }

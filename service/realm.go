@@ -42,8 +42,8 @@ func (s *RealmService) RegisterRealm(
 			return err
 		}
 
-		err = q.CreateRealmMember(ctx, &db.CreateRealmMemberParams{
-			RmID:         sql.NullInt64{Int64: userId, Valid: true},
+		err = q.UpdateRealmMember(ctx, &db.UpdateRealmMemberParams{
+			RmID:         userId,
 			RealmID:      sql.NullInt64{Int64: realm.RealmID, Valid: true},
 			Status:       util.Chief,
 			PrivateMoney: util.DefaultPrivateMoney,
@@ -111,4 +111,16 @@ func (s *RealmService) AddCapital(ctx *gin.Context, arg *db.AddCapitalParams) er
 
 func (s *RealmService) GetRealmOwnerRmId(ctx *gin.Context, realmId int64) (int64, error) {
 	return s.store.GetRealmOwnerRmId(ctx, realmId)
+}
+
+func (s *RealmService) FindMyRealm(ctx *gin.Context, realmId int64) (*db.FindRealmWithJsonRow, error) {
+	return s.store.FindRealmWithJson(ctx, realmId)
+}
+
+func (s *RealmService) FindAllRealmExcludeMe(ctx *gin.Context, realmId sql.NullInt64) ([]*db.FindAllRealmsWithJsonExcludeMeRow, error) {
+	if realmId.Valid {
+		return s.store.FindAllRealmsWithJsonExcludeMe(ctx, realmId.Int64)
+	}
+	// 모든 영토
+	return s.store.FindAllRealmsWithJsonExcludeMe(ctx, 0)
 }

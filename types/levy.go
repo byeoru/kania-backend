@@ -53,3 +53,21 @@ type CreateLevyResultInfo struct {
 	StateCoffers int32
 	Population   int32
 }
+
+type FindMyLevyPathRequest struct {
+	LevyID int64 `uri:"levy_id" binding:"required,min=0"`
+}
+
+type FindMyLevyResponse struct {
+	APIResponse *apiResponse         `json:"api_response"`
+	RealmLevy   *RealmLeviesResponse `json:"realm_levy"`
+}
+
+type GetSectorLeviesQueryRequest struct {
+	Sector int32 `form:"sector" binding:"required,min=0"`
+}
+
+type GetSectorLeviesResponse struct {
+	APIResponse *apiResponse           `json:"api_response"`
+	RealmLevies []*RealmLeviesResponse `json:"realm_levies"`
+}

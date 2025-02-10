@@ -22,7 +22,7 @@ CREATE TABLE "realms" (
 );
 
 CREATE TABLE "realm_members" (
-  "rm_id" bigint UNIQUE,
+  "rm_id" bigint PRIMARY KEY,
   "realm_id" bigint,
   "status" varchar NOT NULL,
   "private_money" int NOT NULL,
@@ -74,8 +74,10 @@ CREATE TABLE "levies" (
 CREATE TABLE "levies_actions" (
   "levy_action_id" bigserial PRIMARY KEY,
   "levy_id" bigint NOT NULL,
+  "realm_id" bigint NOT NULL,
   "origin_sector" int NOT NULL,
   "target_sector" int NOT NULL,
+  "distance" float NOT NULL,
   "action_type" varchar NOT NULL,
   "completed" boolean NOT NULL,
   "started_at" timestamptz NOT NULL,
@@ -131,8 +133,6 @@ CREATE INDEX ON "users" ("email");
 
 CREATE INDEX ON "realms" ("owner_rm_id");
 
-CREATE INDEX ON "realm_members" ("rm_id");
-
 CREATE INDEX ON "realm_members" ("realm_id");
 
 CREATE INDEX ON "member_authorities" ("rm_id");
@@ -152,6 +152,8 @@ CREATE INDEX ON "levies" ("encampment");
 CREATE INDEX ON "levies" ("stationed");
 
 CREATE INDEX ON "levies_actions" ("levy_id");
+
+CREATE INDEX ON "levies_actions" ("realm_id");
 
 CREATE INDEX ON "levies_actions" ("expected_completion_at");
 
@@ -186,6 +188,8 @@ ALTER TABLE "levies" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("rm_i
 ALTER TABLE "levies" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id") ON DELETE SET NULL;
 
 ALTER TABLE "levies_actions" ADD FOREIGN KEY ("levy_id") REFERENCES "levies" ("levy_id") ON DELETE CASCADE;
+
+ALTER TABLE "levies_actions" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id") ON DELETE SET NULL;
 
 ALTER TABLE "conquered_nations" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("rm_id");
 

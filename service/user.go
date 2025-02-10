@@ -1,12 +1,14 @@
 package service
 
 import (
+	"database/sql"
 	"fmt"
 	"sync"
 
 	"github.com/byeoru/kania/config"
 	db "github.com/byeoru/kania/db/repository"
 	"github.com/byeoru/kania/token"
+	"github.com/byeoru/kania/util"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -43,7 +45,26 @@ func (s *UserService) HashPassword(password string) (string, error) {
 }
 
 func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams) error {
-	return s.store.CreateUser(ctx, newUser)
+	return s.store.ExecTx(ctx, func(q *db.Queries) error {
+		userId, err := s.store.CreateUser(ctx, newUser)
+		if err != nil {
+			return err
+		}
+
+		arg := db.CreateRealmMemberParams{
+			RmID:         userId,
+			RealmID:      sql.NullInt64{Valid: false},
+			Status:       util.None,
+			PrivateMoney: 0,
+		}
+
+		err = s.store.CreateRealmMember(ctx, &arg)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (s *UserService) Login(ctx *gin.Context, email string) (*db.User, error) {

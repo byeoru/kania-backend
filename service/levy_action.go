@@ -33,9 +33,10 @@ func newLevyActionService(store db.Store, grpcClient *grpcclient.Client) *LevyAc
 	return levyActionServiceInstance
 }
 
-func (s *LevyActionService) ExecuteLevyAction(ctx *gin.Context, arg *db.CreateLevyActionParams) error {
-	return s.store.ExecTx(ctx, func(q *db.Queries) error {
-		err := s.store.CreateLevyAction(ctx, arg)
+func (s *LevyActionService) ExecuteLevyAction(ctx *gin.Context, arg *db.CreateLevyActionParams) (*db.LeviesAction, error) {
+	var rs *db.LeviesAction
+	err := s.store.ExecTx(ctx, func(q *db.Queries) error {
+		action, err := s.store.CreateLevyAction(ctx, arg)
 		if err != nil {
 			return err
 		}
@@ -48,17 +49,54 @@ func (s *LevyActionService) ExecuteLevyAction(ctx *gin.Context, arg *db.CreateLe
 		if err != nil {
 			return err
 		}
-
+		rs = action
 		return nil
 	})
+
+	return rs, err
 }
 
-func (s *LevyActionService) FindLevyAction(ctx *gin.Context, arg *db.FindLevyActionParams) (*db.LeviesAction, error) {
-	return s.store.FindLevyAction(ctx, arg)
+func (s *LevyActionService) FindLevyAction(ctx *gin.Context, levyId int64) (*db.LeviesAction, error) {
+	return s.store.FindLevyActionByLevyId(ctx, levyId)
+}
+
+func (s *LevyActionService) FindOnGoingMyRealmActions(ctx *gin.Context, realmId int64) ([]*db.LeviesAction, error) {
+	return s.store.FindOnGoingMyRealmActions(ctx, realmId)
 }
 
 func (s *LevyActionService) FindLevyActionByLevyId(ctx *gin.Context, arg *db.FindLevyActionCountByLevyIdParams) (int64, error) {
 	return s.store.FindLevyActionCountByLevyId(ctx, arg)
+}
+
+type SyncClientType = string
+type ActionResultArgs struct {
+	sector     int32
+	oldRealmId int64
+	newRealmId int64
+	actionType SyncClientType
+	actionId   int64
+}
+
+const (
+	AnnexIndigenousSector SyncClientType = "AnnexIndigenousSector"
+	ReturnToEncampment    SyncClientType = "ReturnToEncampment"
+	ReturnCompleted       SyncClientType = "ReturnCompleted"
+	AnnihilateAttacker    SyncClientType = "AnnihilateAttacker"
+	SurrenderToTarget     SyncClientType = "SurrenderToTarget"
+	ReinforceTroops       SyncClientType = "ReinforceTroops"
+	AnnexAndDisbandUnit   SyncClientType = "AnnexAndDisbandUnit"
+	AnnexSector           SyncClientType = "AnnexSector"
+	Recapture             SyncClientType = "Recapture"
+)
+
+func syncClientSectorInfo(s *LevyActionService, arg *ActionResultArgs) {
+	s.grpcClient.UpdateSectorOwnership(&grpcclient.SectorOwnership{
+		Sector:     arg.sector,
+		OldRealmID: arg.oldRealmId,
+		NewRealmID: arg.newRealmId,
+		ActionType: arg.actionType,
+		ActionID:   arg.actionId,
+	})
 }
 
 func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, currentWorldTime time.Time) error {
@@ -68,7 +106,8 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 	}
 
 	for _, action := range actions {
-		s.store.ExecTx(*ctx, func(q *db.Queries) error {
+		var actionResultArgs ActionResultArgs
+		err := s.store.ExecTx(*ctx, func(q *db.Queries) error {
 			bIndigenous := false
 
 			switch action.LeviesAction.ActionType {
@@ -82,7 +121,6 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 						bIndigenous = true
 					}
 				}
-
 				// 방어측이 토착 세력인 경우
 				if bIndigenous {
 					indigenousUnit, err := q.FindIndigenousUnit(*ctx, action.LeviesAction.TargetSector)
@@ -121,21 +159,44 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 					// 전투
 					bAttackerAnnihilation, bDefenderAnnihilation := executeSingleBattleTurn(&action.Levy, &arg1)
 					if bDefenderAnnihilation { // 향군이 전멸한 경우
+
 						err := annexSectorOfIndigenousLand(ctx, s, q, action)
 						if err != nil {
 							return err
 						}
 						// 부대 주둔
 						stationInSector(&action.Levy, action.LeviesAction.TargetSector)
+
+						// sync arg
+						actionResultArgs = ActionResultArgs{
+							sector:     action.LeviesAction.TargetSector,
+							newRealmId: action.Levy.RealmID.Int64,
+							actionType: AnnexIndigenousSector,
+							actionId:   action.LeviesAction.LevyActionID,
+						}
 					} else if !bAttackerAnnihilation { // 공격, 수비 부대 둘 다 생존한 경우
 						// 공격부대 주둔지로 복귀
-						err = returnToEncampment(ctx, q, action)
+						speed := util.CalculateLevyAdvanceSpeed(&action.Levy)
+						err := returnToEncampment(ctx, q, speed, action)
 						if err != nil {
 							return err
+						}
+
+						// sync arg
+						actionResultArgs = ActionResultArgs{
+							sector:     action.LeviesAction.TargetSector,
+							actionType: ReturnToEncampment,
+							actionId:   action.LeviesAction.LevyActionID,
 						}
 					} else {
 						// 공격 부대가 전멸한 경우
 						action.Levy.Stationed = true
+
+						// sync arg
+						actionResultArgs = ActionResultArgs{
+							actionType: AnnihilateAttacker,
+							actionId:   action.LeviesAction.LevyActionID,
+						}
 					}
 
 					// 전투 후 공격부대 정보 업데이트
@@ -192,6 +253,12 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 					if err != nil {
 						return err
 					}
+
+					// sync arg
+					actionResultArgs = ActionResultArgs{
+						actionType: SurrenderToTarget,
+						actionId:   action.LeviesAction.LevyActionID,
+					}
 					break
 				}
 
@@ -206,16 +273,35 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 					if err != nil {
 						return err
 					}
+
+					// sync arg
+					actionResultArgs = ActionResultArgs{
+						actionType: ReinforceTroops,
+						actionId:   action.LeviesAction.LevyActionID,
+					}
+					break
+				}
+
+				// 방어 부대가 없는 경우
+				if defenderSize == 0 {
+					r, err := resolveUndefendedTerritory(ctx, q, action, defenderInfo, &defenders)
+					if err != nil {
+						return err
+					}
+
+					actionResultArgs = *r
+					// 공격 부대 정보 업데이트
+					err = updateLevies(ctx, q, []*db.Levy{&action.Levy})
+					if err != nil {
+						return err
+					}
 					break
 				}
 
 				var validDefenderLevyIndex int
 				for idx, defender := range defenders {
-					// 방어 부대에 벙사가 없을 경우
-					if util.IsAnnihilated(defender) {
-
-					} else {
-						// 전투가 가능한 부대일 경우
+					// 전투가 가능한 부대일 경우
+					if !util.IsAnnihilated(defender) {
 						validDefenderLevyIndex = idx
 						break
 					}
@@ -227,48 +313,49 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 				if bDefenderAnnihilation {
 					// 더이상 방어할 부대가 없는 경우
 					if validDefenderLevyIndex >= defenderSize-1 {
-						// 합병
-						annexResult, err := annexSectorOfRealm(ctx, q, action, &defenderInfo.Realm)
+						r, err := resolveUndefendedTerritory(ctx, q, action, defenderInfo, &defenders)
 						if err != nil {
 							return err
 						}
-						// 공격부대 주둔
-						stationInSector(&action.Levy, action.LeviesAction.TargetSector)
-
-						// 방어진영의 국가가 멸망했거나 부흥세력일 경우
-						if annexResult == util.Annihilation || defenderInfo.Realm.PoliticalEntity == util.RestorationForces {
-							arg := db.RemoveStationedLeviesParams{
-								RealmID:    sql.NullInt64{Int64: defenderInfo.Realm.RealmID, Valid: true},
-								Encampment: action.LeviesAction.TargetSector,
-							}
-							// 방어부대 모두 해체
-							err := q.RemoveStationedLevies(*ctx, &arg)
-							if err != nil {
-								return err
-							}
-							defenders = []*db.Levy{}
-						} else {
-							// 모든 방어부대(전멸상태) 주둔지 수도로 변경
-							for _, defender := range defenders {
-								defender.Encampment = defenderInfo.Realm.Capitals[0]
-							}
-						}
+						actionResultArgs = *r
 					} else {
 						// 공격부대 주둔지로 복귀
-						err := returnToEncampment(ctx, q, action)
+						speed := util.CalculateLevyAdvanceSpeed(&action.Levy)
+						err := returnToEncampment(ctx, q, speed, action)
 						if err != nil {
 							return err
+						}
+
+						// sync arg
+						actionResultArgs = ActionResultArgs{
+							sector:     action.LeviesAction.TargetSector,
+							actionType: ReturnToEncampment,
+							actionId:   action.LeviesAction.LevyActionID,
 						}
 					}
 				} else if !bAttackerAnnihilation { // 공격, 수비 둘 다 생존한 경우
 					// 공격부대 주둔지로 복귀
-					err = returnToEncampment(ctx, q, action)
+					speed := util.CalculateLevyAdvanceSpeed(&action.Levy)
+					err := returnToEncampment(ctx, q, speed, action)
 					if err != nil {
 						return err
+					}
+
+					// sync arg
+					actionResultArgs = ActionResultArgs{
+						sector:     action.LeviesAction.TargetSector,
+						actionType: ReturnToEncampment,
+						actionId:   action.LeviesAction.LevyActionID,
 					}
 				} else {
 					// 공격 부대가 전멸한 경우
 					action.Levy.Stationed = true
+
+					// sync arg
+					actionResultArgs = ActionResultArgs{
+						actionType: AnnihilateAttacker,
+						actionId:   action.LeviesAction.LevyActionID,
+					}
 				}
 				// 공격, 방어 부대 정보 업데이트
 				err = updateLevies(ctx, q, append(defenders, &action.Levy))
@@ -276,6 +363,7 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 					return err
 				}
 			case util.Move:
+			case util.Recapture:
 
 			case util.Return:
 				// 본국이 멸망한 경우
@@ -295,23 +383,29 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 
 				// 부대 주둔지가 함락 당한 경우
 				/**
-				부대 주둔지가 함락되었다는 것은 보급병이 전멸하였다는 뜻이기 때문에 다른 곳으로 이동할 군량이 없다고 판단한다
+				부대 주둔지가 함락되었다는 것은 보급병이 전멸하였다는 뜻이기 때문에 다른 곳으로 이동할 군량이 없다고 설정한다
 				때문에 주둔지를 되찾기 위해 공격을 시도함
 				*/
 				if realmId != action.Levy.RealmID.Int64 {
-					// 주둔지 수복 시도(월드 시간 1시간 후)
+					// 주둔지 수복 시도(월드 시간 2시간 후)
 					arg2 := db.CreateLevyActionParams{
 						LevyID:               action.Levy.LevyID,
 						OriginSector:         action.LeviesAction.TargetSector,
 						TargetSector:         action.LeviesAction.TargetSector,
-						ActionType:           util.Attack,
+						ActionType:           util.Recapture,
 						Completed:            false,
 						StartedAt:            action.LeviesAction.ExpectedCompletionAt,
-						ExpectedCompletionAt: action.LeviesAction.ExpectedCompletionAt.Add(time.Hour),
+						ExpectedCompletionAt: action.LeviesAction.ExpectedCompletionAt.Add(time.Hour * 2),
 					}
-					err = q.CreateLevyAction(*ctx, &arg2)
+					_, err = q.CreateLevyAction(*ctx, &arg2)
 					if err != nil {
 						return err
+					}
+
+					// sync arg
+					actionResultArgs = ActionResultArgs{
+						actionType: Recapture,
+						actionId:   action.LeviesAction.LevyActionID,
 					}
 					break
 				}
@@ -325,8 +419,12 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 				if err != nil {
 					return err
 				}
+				// sync arg
+				actionResultArgs = ActionResultArgs{
+					actionType: ReturnCompleted,
+					actionId:   action.LeviesAction.LevyActionID,
+				}
 			}
-
 			arg := db.UpdateLevyActionCompletedParams{
 				LevyActionID: action.LeviesAction.LevyActionID,
 				Completed:    true,
@@ -339,9 +437,64 @@ func (s *LevyActionService) ExecuteCronLevyActions(ctx *context.Context, current
 
 			return nil
 		})
+
+		if err != nil {
+			return err
+		}
+		syncClientSectorInfo(s, &actionResultArgs)
 	}
 
 	return nil
+}
+
+func resolveUndefendedTerritory(
+	ctx *context.Context,
+	q *db.Queries,
+	action *db.FindLevyActionsBeforeDateRow,
+	defenderInfo *db.FindSectorRealmForUpdateRow,
+	defenders *[]*db.Levy,
+) (*ActionResultArgs, error) {
+	// 합병
+	annexResult, err := annexSectorOfRealm(ctx, q, action, &defenderInfo.Realm)
+	if err != nil {
+		return nil, err
+	}
+	// 공격부대 주둔
+	stationInSector(&action.Levy, action.LeviesAction.TargetSector)
+
+	// 방어진영의 국가가 멸망했거나 부흥세력일 경우
+	if annexResult == util.Annihilation || defenderInfo.Realm.PoliticalEntity == util.RestorationForces {
+		arg := db.RemoveStationedLeviesParams{
+			RealmID:    sql.NullInt64{Int64: defenderInfo.Realm.RealmID, Valid: true},
+			Encampment: action.LeviesAction.TargetSector,
+		}
+		// 방어부대 모두 해체
+		err = q.RemoveStationedLevies(*ctx, &arg)
+		*defenders = []*db.Levy{}
+
+		// sync arg
+		return &ActionResultArgs{
+			sector:     action.LeviesAction.TargetSector,
+			oldRealmId: defenderInfo.Realm.RealmID,
+			newRealmId: action.Levy.RealmID.Int64,
+			actionType: AnnexAndDisbandUnit,
+			actionId:   action.LeviesAction.LevyActionID,
+		}, err
+	} else {
+		// 모든 방어부대(전멸상태) 주둔지 수도로 변경
+		for _, defender := range *defenders {
+			defender.Encampment = defenderInfo.Realm.Capitals[0]
+		}
+
+		// sync arg
+		return &ActionResultArgs{
+			sector:     action.LeviesAction.TargetSector,
+			oldRealmId: defenderInfo.Realm.RealmID,
+			newRealmId: action.Levy.RealmID.Int64,
+			actionType: AnnexSector,
+			actionId:   action.LeviesAction.LevyActionID,
+		}, nil
+	}
 }
 
 func annexSectorOfRealm(
@@ -354,9 +507,9 @@ func annexSectorOfRealm(
 	if err != nil {
 		return util.Error, err
 	}
-
 	numberOfCapitals := len(defenderRealm.Capitals)
 	bCapital := util.Find(defenderRealm.Capitals, action.LeviesAction.TargetSector)
+
 	// 현재 영토가 방어측의 마지막 영토라면
 	if SectorsNumber <= 1 {
 		// 국가 멸망
@@ -477,7 +630,7 @@ func changeSectorOwnership(
 	// sector 소유권 이전
 	err := q.UpdateSectorOwnership(ctx, &arg1)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	arg2 := db.AddRealmSectorJsonbParams{
@@ -492,8 +645,8 @@ func changeSectorOwnership(
 	}
 
 	arg3 := db.RemoveSectorJsonbParams{
-		CellNumber: sectorNumber,
-		RealmID:    prevOwnerRealmId,
+		Key:     fmt.Sprintf("%d", sectorNumber),
+		RealmID: prevOwnerRealmId,
 	}
 	// 패배한 국가에 소유권 박탈
 	err = q.RemoveSectorJsonb(ctx, &arg3)
@@ -531,22 +684,24 @@ func updateLevies(ctx *context.Context, q *db.Queries, levies []*db.Levy) error 
 	return nil
 }
 
-func returnToEncampment(ctx *context.Context, q *db.Queries, action *db.FindLevyActionsBeforeDateRow) error {
-	completionAt := action.LeviesAction.ExpectedCompletionAt.Add(
-		action.LeviesAction.ExpectedCompletionAt.Sub(action.LeviesAction.StartedAt),
-	)
+func returnToEncampment(ctx *context.Context, q *db.Queries, speed float64, action *db.FindLevyActionsBeforeDateRow) error {
+	totalDurationHours := action.LeviesAction.Distance / speed
+	cd := util.CalculateCompletionDate(action.LeviesAction.ExpectedCompletionAt, totalDurationHours)
 
 	arg := db.CreateLevyActionParams{
 		LevyID:               action.LeviesAction.LevyID,
+		RealmID:              action.Levy.RealmID.Int64,
 		OriginSector:         action.LeviesAction.TargetSector,
 		TargetSector:         action.LeviesAction.OriginSector,
+		Distance:             action.LeviesAction.Distance,
 		ActionType:           util.Return,
 		Completed:            false,
 		StartedAt:            action.LeviesAction.ExpectedCompletionAt,
-		ExpectedCompletionAt: completionAt,
+		ExpectedCompletionAt: cd,
 	}
 
-	return q.CreateLevyAction(*ctx, &arg)
+	_, err := q.CreateLevyAction(*ctx, &arg)
+	return err
 }
 
 func executeSingleBattleTurn(attacker *db.Levy, defender *db.Levy) (attackerAnnihilation bool, defenderAnnihilation bool) {
@@ -559,35 +714,35 @@ func executeSingleBattleTurn(attacker *db.Levy, defender *db.Levy) (attackerAnni
 	return
 }
 
-func attack(attacker *db.Levy, defender *db.Levy, bCounterattack bool) (defenderAnnihilation bool) {
-	// 궁병 공격: 상대 주둔중 -> (궁병, 창기병, 검병, 방패병), 상대 출병 -> 보급병
+func attack(attacker *db.Levy, defender *db.Levy, bCounterattack bool) (bDefenderAnnihilation bool) {
+	// 궁병 공격: 상대 주둔중 -> (궁병, 창기병, 검병, 방패병, 보급병), 상대 출병 -> 보급병
 	annihilation := archersFirstAttack(attacker, defender, bCounterattack)
 	if annihilation {
-		defenderAnnihilation = true
+		bDefenderAnnihilation = true
 		return
 	}
-	// 창기병 공격: 상대 주둔중 -> (방패병, 창기병, 검병, 궁병), 상대 출병 -> 보급병
+	// 창기병 공격: 상대 주둔중 -> (방패병, 창기병, 검병, 궁병, 보급병), 상대 출병 -> 보급병
 	annihilation = lancersAttack(attacker, defender, bCounterattack)
 	if annihilation {
-		defenderAnnihilation = true
+		bDefenderAnnihilation = true
 		return
 	}
-	// 검병 공격: 상대 주둔중 -> (창기병, 검병, 방패병, 궁병), 상대 출병 -> 보급병
+	// 검병 공격: 상대 주둔중 -> (창기병, 검병, 방패병, 궁병, 보급병), 상대 출병 -> 보급병
 	annihilation = swordmenAttack(attacker, defender, bCounterattack)
 	if annihilation {
-		defenderAnnihilation = true
+		bDefenderAnnihilation = true
 		return
 	}
-	// 궁병 공격: 상대 주둔중 -> (창기병, 궁병, 검병, 방패병), 상대 출병 -> 보급병
+	// 궁병 공격: 상대 주둔중 -> (창기병, 궁병, 검병, 방패병, 보급병), 상대 출병 -> 보급병
 	annihilation = archersAttack(attacker, defender, bCounterattack)
 	if annihilation {
-		defenderAnnihilation = true
+		bDefenderAnnihilation = true
 		return
 	}
-	// 방패병 공격: 상대 주둔중 -> (검병, 창기병, 방패병, 궁병), 상대 출병 -> 보급병
+	// 방패병 공격: 상대 주둔중 -> (검병, 창기병, 방패병, 궁병, 보급병), 상대 출병 -> 보급병
 	annihilation = shieldBearerAttack(attacker, defender, bCounterattack)
 	if annihilation {
-		defenderAnnihilation = true
+		bDefenderAnnihilation = true
 		return
 	}
 	return false
@@ -625,7 +780,10 @@ func archersFirstAttack(attacker *db.Levy, defender *db.Levy, bCounterattack boo
 	// 궁병 -> 방패병 공격
 	case defender.ShieldBearers > 0:
 		defender.ShieldBearers = inflictDamage(attacker.Archers, unitStat.Archer, &emptyExtra, defender.ShieldBearers, unitStat.ShieldBearer, &emptyExtra)
-	// 적 부대 전멸
+	// 궁병 -> 보급병 공격
+	case defender.SupplyTroop > 0:
+		defender.SupplyTroop = inflictDamage(attacker.Archers, unitStat.Archer, &emptyExtra, defender.SupplyTroop, unitStat.SupplyTroop, &emptyExtra)
+		// 적 부대 전멸
 	default:
 		annihilation = true
 		return
@@ -659,7 +817,10 @@ func lancersAttack(attacker *db.Levy, defender *db.Levy, bCounterattack bool) (a
 	// 창기병 -> 궁병 공격
 	case defender.Archers > 0:
 		defender.Archers = inflictDamage(attacker.Lancers, unitStat.Lancer, &emptyExtra, defender.Archers, unitStat.Archer, &emptyExtra)
-	// 적 부대 전멸
+	// 창기병 -> 보급병 공격
+	case defender.SupplyTroop > 0:
+		defender.SupplyTroop = inflictDamage(attacker.Lancers, unitStat.Lancer, &emptyExtra, defender.SupplyTroop, unitStat.SupplyTroop, &emptyExtra)
+		// 적 부대 전멸
 	default:
 		annihilation = true
 		return
@@ -693,7 +854,10 @@ func swordmenAttack(attacker *db.Levy, defender *db.Levy, bCounterattack bool) (
 	// 검병 -> 궁병 공격
 	case defender.Archers > 0:
 		defender.Archers = inflictDamage(attacker.Swordmen, unitStat.Swordman, &emptyExtra, defender.Archers, unitStat.Archer, &emptyExtra)
-	// 적 부대 전멸
+	// 검병 -> 보급병 공격
+	case defender.SupplyTroop > 0:
+		defender.SupplyTroop = inflictDamage(attacker.Swordmen, unitStat.Swordman, &emptyExtra, defender.SupplyTroop, unitStat.SupplyTroop, &emptyExtra)
+		// 적 부대 전멸
 	default:
 		annihilation = true
 		return
@@ -734,7 +898,10 @@ func archersAttack(attacker *db.Levy, defender *db.Levy, bCounterattack bool) (a
 	// 궁병 -> 방패병 공격
 	case defender.ShieldBearers > 0:
 		defender.ShieldBearers = inflictDamage(attacker.Archers, unitStat.Archer, &emptyExtra, defender.ShieldBearers, unitStat.ShieldBearer, &emptyExtra)
-	// 적 부대 전멸
+	// 궁병 -> 보급병 공격
+	case defender.SupplyTroop > 0:
+		defender.SupplyTroop = inflictDamage(attacker.Archers, unitStat.Archer, &emptyExtra, defender.SupplyTroop, unitStat.SupplyTroop, &emptyExtra)
+		// 적 부대 전멸
 	default:
 		annihilation = true
 		return
@@ -768,7 +935,10 @@ func shieldBearerAttack(attacker *db.Levy, defender *db.Levy, bCounterattack boo
 	// 방패병 -> 궁병 공격
 	case defender.Archers > 0:
 		defender.Archers = inflictDamage(attacker.ShieldBearers, unitStat.ShieldBearer, &emptyExtra, defender.Archers, unitStat.Archer, &emptyExtra)
-	// 적 부대 전멸
+	// 방패병 -> 보급병 공격
+	case defender.SupplyTroop > 0:
+		defender.SupplyTroop = inflictDamage(attacker.ShieldBearers, unitStat.ShieldBearer, &emptyExtra, defender.SupplyTroop, unitStat.SupplyTroop, &emptyExtra)
+		// 적 부대 전멸
 	default:
 		annihilation = true
 		return

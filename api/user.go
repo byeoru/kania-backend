@@ -47,13 +47,13 @@ func (r *userRouter) signup(ctx *gin.Context) {
 		return
 	}
 
-	arg := db.CreateUserParams{
+	arg1 := db.CreateUserParams{
 		Email:          req.Email,
 		HashedPassword: hashedPassword,
 		Nickname:       req.Nickname,
 	}
 
-	if err := r.userService.Signup(ctx, &arg); err != nil {
+	if err := r.userService.Signup(ctx, &arg1); err != nil {
 		pqErr, ok := err.(*pq.Error)
 		if !ok {
 			ctx.JSON(http.StatusInternalServerError, &types.SignupUserResponse{

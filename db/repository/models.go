@@ -41,8 +41,10 @@ type IndigenousUnit struct {
 type LeviesAction struct {
 	LevyActionID         int64     `json:"levy_action_id"`
 	LevyID               int64     `json:"levy_id"`
+	RealmID              int64     `json:"realm_id"`
 	OriginSector         int32     `json:"origin_sector"`
 	TargetSector         int32     `json:"target_sector"`
+	Distance             float64   `json:"distance"`
 	ActionType           string    `json:"action_type"`
 	Completed            bool      `json:"completed"`
 	StartedAt            time.Time `json:"started_at"`
@@ -103,7 +105,7 @@ type Realm struct {
 }
 
 type RealmMember struct {
-	RmID         sql.NullInt64 `json:"rm_id"`
+	RmID         int64         `json:"rm_id"`
 	RealmID      sql.NullInt64 `json:"realm_id"`
 	Status       string        `json:"status"`
 	PrivateMoney int32         `json:"private_money"`

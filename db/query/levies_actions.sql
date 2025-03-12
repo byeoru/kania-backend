@@ -2,6 +2,7 @@
 INSERT INTO levies_actions (
    levy_id,
    realm_id,
+   rm_id,
    origin_sector,
    target_sector, 
    distance,
@@ -10,7 +11,7 @@ INSERT INTO levies_actions (
    started_at,
    expected_completion_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 ) RETURNING *;
 
 -- name: FindLevyActionCountByLevyId :one
@@ -35,9 +36,15 @@ ORDER BY LA.expected_completion_at ASC;
 
 -- name: UpdateLevyActionCompleted :exec
 UPDATE levies_actions
-SET completed = $2
+SET completed = $2,
+target_realm_id = $3
 WHERE levy_action_id = $1;
 
 -- name: FindOnGoingMyRealmActions :many
 SELECT * FROM levies_actions
 WHERE realm_id = $1 AND completed = false;
+
+-- name: FindLevyAction :one
+SELECT * FROM levies_actions
+WHERE levy_action_id = $1
+LIMIT 1;

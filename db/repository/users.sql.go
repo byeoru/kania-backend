@@ -12,28 +12,26 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
     email,
-    hashed_password,
-    nickname
+    hashed_password
 ) VALUES (
-    $1, $2, $3
+    $1, $2
 ) RETURNING user_id
 `
 
 type CreateUserParams struct {
 	Email          string `json:"email"`
 	HashedPassword string `json:"hashed_password"`
-	Nickname       string `json:"nickname"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg *CreateUserParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.HashedPassword, arg.Nickname)
+	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.HashedPassword)
 	var user_id int64
 	err := row.Scan(&user_id)
 	return user_id, err
 }
 
 const findUserByEmail = `-- name: FindUserByEmail :one
-SELECT user_id, email, hashed_password, nickname, created_at FROM users
+SELECT user_id, email, hashed_password, created_at FROM users
 WHERE email = $1 LIMIT 1
 `
 
@@ -44,14 +42,13 @@ func (q *Queries) FindUserByEmail(ctx context.Context, email string) (*User, err
 		&i.UserID,
 		&i.Email,
 		&i.HashedPassword,
-		&i.Nickname,
 		&i.CreatedAt,
 	)
 	return &i, err
 }
 
 const findUserById = `-- name: FindUserById :one
-SELECT user_id, email, hashed_password, nickname, created_at FROM users
+SELECT user_id, email, hashed_password, created_at FROM users
 WHERE user_id = $1 LIMIT 1
 `
 
@@ -62,7 +59,6 @@ func (q *Queries) FindUserById(ctx context.Context, userID int64) (*User, error)
 		&i.UserID,
 		&i.Email,
 		&i.HashedPassword,
-		&i.Nickname,
 		&i.CreatedAt,
 	)
 	return &i, err

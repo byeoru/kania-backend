@@ -21,6 +21,7 @@ type Service struct {
 	LevyActionService      *LevyActionService
 	IndigenousUnitService  *IndigenousUnitService
 	WorldTimeRecordService *WorldTimeRecordService
+	SectorJsonService      *SectorJsonService
 }
 
 func NewService(store db.Store, grpcClient *grpcclient.Client) *Service {
@@ -34,6 +35,7 @@ func NewService(store db.Store, grpcClient *grpcclient.Client) *Service {
 			LevyActionService:      newLevyActionService(store, grpcClient),
 			IndigenousUnitService:  newIndigenousUnitService(store),
 			WorldTimeRecordService: newWorldTimeRecordService(store),
+			SectorJsonService:      newSectorJsonService(store),
 		}
 	})
 	return serviceInstance

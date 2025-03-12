@@ -14,32 +14,35 @@ const createRealmMember = `-- name: CreateRealmMember :exec
 INSERT INTO realm_members (
     rm_id,
     realm_id,
+    nickname,
     status,
-    private_money
+    private_coffers
 ) VALUES (
-    $1, $2, $3, $4
+    $1, $2, $3, $4, $5
 )
 `
 
 type CreateRealmMemberParams struct {
-	RmID         int64         `json:"rm_id"`
-	RealmID      sql.NullInt64 `json:"realm_id"`
-	Status       string        `json:"status"`
-	PrivateMoney int32         `json:"private_money"`
+	RmID           int64         `json:"rm_id"`
+	RealmID        sql.NullInt64 `json:"realm_id"`
+	Nickname       string        `json:"nickname"`
+	Status         string        `json:"status"`
+	PrivateCoffers int32         `json:"private_coffers"`
 }
 
 func (q *Queries) CreateRealmMember(ctx context.Context, arg *CreateRealmMemberParams) error {
 	_, err := q.db.ExecContext(ctx, createRealmMember,
 		arg.RmID,
 		arg.RealmID,
+		arg.Nickname,
 		arg.Status,
-		arg.PrivateMoney,
+		arg.PrivateCoffers,
 	)
 	return err
 }
 
 const findFullRealmMember = `-- name: FindFullRealmMember :one
-SELECT rm.rm_id, rm.realm_id, rm.status, rm.private_money, rm.created_at, ma.rm_id, ma.create_unit, ma.reinforce_unit, ma.move_unit, ma.attack_unit, ma.private_troops, ma.census, ma.created_at 
+SELECT rm.rm_id, rm.realm_id, rm.nickname, rm.status, rm.private_coffers, rm.created_at, ma.rm_id, ma.create_unit, ma.reinforce_unit, ma.move_unit, ma.attack_unit, ma.private_troops, ma.census, ma.created_at 
 FROM realm_members AS RM
 INNER JOIN member_authorities AS MA
 ON RM.rm_id = MA.rm_id
@@ -57,8 +60,9 @@ func (q *Queries) FindFullRealmMember(ctx context.Context, rmID int64) (*FindFul
 	err := row.Scan(
 		&i.RealmMember.RmID,
 		&i.RealmMember.RealmID,
+		&i.RealmMember.Nickname,
 		&i.RealmMember.Status,
-		&i.RealmMember.PrivateMoney,
+		&i.RealmMember.PrivateCoffers,
 		&i.RealmMember.CreatedAt,
 		&i.MemberAuthority.RmID,
 		&i.MemberAuthority.CreateUnit,
@@ -73,7 +77,7 @@ func (q *Queries) FindFullRealmMember(ctx context.Context, rmID int64) (*FindFul
 }
 
 const findRealmMember = `-- name: FindRealmMember :one
-SELECT rm_id, realm_id, status, private_money, created_at FROM realm_members
+SELECT rm_id, realm_id, nickname, status, private_coffers, created_at FROM realm_members
 WHERE rm_id = $1 LIMIT 1
 `
 
@@ -83,10 +87,44 @@ func (q *Queries) FindRealmMember(ctx context.Context, rmID int64) (*RealmMember
 	err := row.Scan(
 		&i.RmID,
 		&i.RealmID,
+		&i.Nickname,
 		&i.Status,
-		&i.PrivateMoney,
+		&i.PrivateCoffers,
 		&i.CreatedAt,
 	)
+	return &i, err
+}
+
+const transferPrivateCoffers = `-- name: TransferPrivateCoffers :one
+WITH deducted AS (
+    UPDATE realm_members
+    SET private_coffers = FLOOR(private_coffers * (1 - $2::float))::int
+    WHERE rm_id = $3::bigint
+    RETURNING FLOOR(private_coffers / $2::float)::int - private_coffers AS delta, private_coffers AS source_private_coffers
+)
+UPDATE realm_members
+SET private_coffers = private_coffers + deducted.delta
+FROM deducted
+WHERE rm_id = $1::bigint
+RETURNING deducted.delta, deducted.source_private_coffers, private_coffers AS receiver_private_coffers
+`
+
+type TransferPrivateCoffersParams struct {
+	ReceiverRmID  int64   `json:"receiver_rm_id"`
+	ReductionRate float64 `json:"reduction_rate"`
+	SourceRmID    int64   `json:"source_rm_id"`
+}
+
+type TransferPrivateCoffersRow struct {
+	Delta                  int32 `json:"delta"`
+	SourcePrivateCoffers   int32 `json:"source_private_coffers"`
+	ReceiverPrivateCoffers int32 `json:"receiver_private_coffers"`
+}
+
+func (q *Queries) TransferPrivateCoffers(ctx context.Context, arg *TransferPrivateCoffersParams) (*TransferPrivateCoffersRow, error) {
+	row := q.db.QueryRowContext(ctx, transferPrivateCoffers, arg.ReceiverRmID, arg.ReductionRate, arg.SourceRmID)
+	var i TransferPrivateCoffersRow
+	err := row.Scan(&i.Delta, &i.SourcePrivateCoffers, &i.ReceiverPrivateCoffers)
 	return &i, err
 }
 
@@ -94,15 +132,15 @@ const updateRealmMember = `-- name: UpdateRealmMember :exec
 UPDATE realm_members
 SET realm_id = $2,
 status = $3,
-private_money = $4
+private_coffers = $4
 WHERE rm_id = $1
 `
 
 type UpdateRealmMemberParams struct {
-	RmID         int64         `json:"rm_id"`
-	RealmID      sql.NullInt64 `json:"realm_id"`
-	Status       string        `json:"status"`
-	PrivateMoney int32         `json:"private_money"`
+	RmID           int64         `json:"rm_id"`
+	RealmID        sql.NullInt64 `json:"realm_id"`
+	Status         string        `json:"status"`
+	PrivateCoffers int32         `json:"private_coffers"`
 }
 
 func (q *Queries) UpdateRealmMember(ctx context.Context, arg *UpdateRealmMemberParams) error {
@@ -110,7 +148,7 @@ func (q *Queries) UpdateRealmMember(ctx context.Context, arg *UpdateRealmMemberP
 		arg.RmID,
 		arg.RealmID,
 		arg.Status,
-		arg.PrivateMoney,
+		arg.PrivateCoffers,
 	)
 	return err
 }

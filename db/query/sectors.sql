@@ -50,19 +50,6 @@ WHERE cell_number IN (
     HAVING COUNT(levies.encampment) = 0
 );
 
--- name: TransferSectorOwnershipToAttackers :exec
-UPDATE sectors
-SET realm_id = sqlc.arg(attacker_realm_id)::bigint
-WHERE cell_number IN (
-    SELECT sectors.cell_number
-    FROM sectors
-    LEFT JOIN levies
-    ON sectors.cell_number = levies.encampment
-    WHERE sectors.realm_id = sqlc.arg(defender_realm_id)::bigint
-    GROUP BY sectors.cell_number
-    HAVING COUNT(levies.encampment) = 0
-);
-
 -- name: GetNumberOfRealmSectors :one
 SELECT COUNT(S) AS sector_count FROM sectors AS S
 WHERE S.realm_id = $1

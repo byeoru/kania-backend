@@ -276,6 +276,39 @@ func (q *Queries) RemoveRealm(ctx context.Context, realmID int64) error {
 	return err
 }
 
+const transferStateCoffers = `-- name: TransferStateCoffers :one
+WITH deducted AS (
+    UPDATE realms
+    SET state_coffers = FLOOR(state_coffers * (1 - $2::float))::int
+    WHERE realm_id = $3::bigint
+    RETURNING FLOOR(state_coffers / $2::float)::int - state_coffers AS delta, state_coffers AS source_state_coffers
+)
+UPDATE realms
+SET state_coffers = state_coffers + deducted.delta
+FROM deducted
+WHERE realm_id = $1::bigint
+RETURNING deducted.delta, deducted.source_state_coffers, state_coffers AS receiver_state_coffers
+`
+
+type TransferStateCoffersParams struct {
+	ReceiverRealmID int64   `json:"receiver_realm_id"`
+	ReductionRate   float64 `json:"reduction_rate"`
+	SourceRealmID   int64   `json:"source_realm_id"`
+}
+
+type TransferStateCoffersRow struct {
+	Delta                int32 `json:"delta"`
+	SourceStateCoffers   int32 `json:"source_state_coffers"`
+	ReceiverStateCoffers int32 `json:"receiver_state_coffers"`
+}
+
+func (q *Queries) TransferStateCoffers(ctx context.Context, arg *TransferStateCoffersParams) (*TransferStateCoffersRow, error) {
+	row := q.db.QueryRowContext(ctx, transferStateCoffers, arg.ReceiverRealmID, arg.ReductionRate, arg.SourceRealmID)
+	var i TransferStateCoffersRow
+	err := row.Scan(&i.Delta, &i.SourceStateCoffers, &i.ReceiverStateCoffers)
+	return &i, err
+}
+
 const updateCensusAt = `-- name: UpdateCensusAt :exec
 UPDATE realms
 SET census_at = $2
@@ -295,18 +328,25 @@ func (q *Queries) UpdateCensusAt(ctx context.Context, arg *UpdateCensusAtParams)
 const updateRealmPoliticalEntityAndRemoveCapital = `-- name: UpdateRealmPoliticalEntityAndRemoveCapital :exec
 UPDATE realms
 SET political_entity = $1::varchar,
-capitals = array_remove(capitals, $2::int)
-WHERE realm_id = $3::bigint
+capitals = array_remove(capitals, $2::int),
+population_growth_rate = $3::float
+WHERE realm_id = $4::bigint
 `
 
 type UpdateRealmPoliticalEntityAndRemoveCapitalParams struct {
-	PoliticalEntity string `json:"political_entity"`
-	RemoveCapital   int32  `json:"remove_capital"`
-	RealmID         int64  `json:"realm_id"`
+	PoliticalEntity      string  `json:"political_entity"`
+	RemoveCapital        int32   `json:"remove_capital"`
+	PopulationGrowthRate float64 `json:"population_growth_rate"`
+	RealmID              int64   `json:"realm_id"`
 }
 
 func (q *Queries) UpdateRealmPoliticalEntityAndRemoveCapital(ctx context.Context, arg *UpdateRealmPoliticalEntityAndRemoveCapitalParams) error {
-	_, err := q.db.ExecContext(ctx, updateRealmPoliticalEntityAndRemoveCapital, arg.PoliticalEntity, arg.RemoveCapital, arg.RealmID)
+	_, err := q.db.ExecContext(ctx, updateRealmPoliticalEntityAndRemoveCapital,
+		arg.PoliticalEntity,
+		arg.RemoveCapital,
+		arg.PopulationGrowthRate,
+		arg.RealmID,
+	)
 	return err
 }
 

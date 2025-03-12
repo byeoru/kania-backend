@@ -160,6 +160,7 @@ func (r *levyActionRouter) advance(ctx *gin.Context) {
 	arg3 := db.CreateLevyActionParams{
 		LevyID:               reqQuery.LevyID,
 		RealmID:              me.RealmID.Int64,
+		RmID:                 me.RmID,
 		OriginSector:         levyOwnership.Encampment,
 		TargetSector:         reqJson.TargetSector,
 		Distance:             distance,
@@ -298,6 +299,8 @@ func (r *levyActionRouter) move(ctx *gin.Context) {
 
 	arg3 := db.CreateLevyActionParams{
 		LevyID:               reqQuery.LevyID,
+		RealmID:              me.RealmID.Int64,
+		RmID:                 me.RmID,
 		OriginSector:         levyOwnership.Encampment,
 		TargetSector:         reqJson.TargetSector,
 		ActionType:           util.Move,

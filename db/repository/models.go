@@ -11,13 +11,11 @@ import (
 )
 
 type BattleOutcome struct {
-	LevyActionID           int64     `json:"levy_action_id"`
-	SwordmanCasualties     int32     `json:"swordman_casualties"`
-	ArcherCasualties       int32     `json:"archer_casualties"`
-	ShieldBearerCasualties int32     `json:"shield_bearer_casualties"`
-	LancerCasualties       int32     `json:"lancer_casualties"`
-	SupplyTroopCasualties  int32     `json:"supply_troop_casualties"`
-	CreatedAt              time.Time `json:"created_at"`
+	LevyActionID int64           `json:"levy_action_id"`
+	RealmID      int64           `json:"realm_id"`
+	Attacker     json.RawMessage `json:"attacker"`
+	Defender     json.RawMessage `json:"defender"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 type ConqueredNation struct {
@@ -39,17 +37,19 @@ type IndigenousUnit struct {
 }
 
 type LeviesAction struct {
-	LevyActionID         int64     `json:"levy_action_id"`
-	LevyID               int64     `json:"levy_id"`
-	RealmID              int64     `json:"realm_id"`
-	OriginSector         int32     `json:"origin_sector"`
-	TargetSector         int32     `json:"target_sector"`
-	Distance             float64   `json:"distance"`
-	ActionType           string    `json:"action_type"`
-	Completed            bool      `json:"completed"`
-	StartedAt            time.Time `json:"started_at"`
-	ExpectedCompletionAt time.Time `json:"expected_completion_at"`
-	CreatedAt            time.Time `json:"created_at"`
+	LevyActionID         int64         `json:"levy_action_id"`
+	LevyID               int64         `json:"levy_id"`
+	RealmID              int64         `json:"realm_id"`
+	RmID                 int64         `json:"rm_id"`
+	OriginSector         int32         `json:"origin_sector"`
+	TargetSector         int32         `json:"target_sector"`
+	Distance             float64       `json:"distance"`
+	ActionType           string        `json:"action_type"`
+	Completed            bool          `json:"completed"`
+	TargetRealmID        sql.NullInt64 `json:"target_realm_id"`
+	StartedAt            time.Time     `json:"started_at"`
+	ExpectedCompletionAt time.Time     `json:"expected_completion_at"`
+	CreatedAt            time.Time     `json:"created_at"`
 }
 
 type Levy struct {
@@ -89,6 +89,16 @@ type MemberAuthority struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+type PrivateCoffersLog struct {
+	PrivateCoffersLogID int64     `json:"private_coffers_log_id"`
+	RmID                int64     `json:"rm_id"`
+	ChangeAmount        int32     `json:"change_amount"`
+	TotalCoffers        int32     `json:"total_coffers"`
+	Reason              string    `json:"reason"`
+	WorldTimeAt         time.Time `json:"world_time_at"`
+	CreatedAt           time.Time `json:"created_at"`
+}
+
 type Realm struct {
 	RealmID              int64     `json:"realm_id"`
 	Name                 string    `json:"name"`
@@ -105,11 +115,12 @@ type Realm struct {
 }
 
 type RealmMember struct {
-	RmID         int64         `json:"rm_id"`
-	RealmID      sql.NullInt64 `json:"realm_id"`
-	Status       string        `json:"status"`
-	PrivateMoney int32         `json:"private_money"`
-	CreatedAt    time.Time     `json:"created_at"`
+	RmID           int64         `json:"rm_id"`
+	RealmID        sql.NullInt64 `json:"realm_id"`
+	Nickname       string        `json:"nickname"`
+	Status         string        `json:"status"`
+	PrivateCoffers int32         `json:"private_coffers"`
+	CreatedAt      time.Time     `json:"created_at"`
 }
 
 type RealmSectorsJsonb struct {
@@ -126,11 +137,20 @@ type Sector struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+type StateCoffersLog struct {
+	StateCoffersLogID int64     `json:"state_coffers_log_id"`
+	RealmID           int64     `json:"realm_id"`
+	ChangeAmount      int32     `json:"change_amount"`
+	TotalCoffers      int32     `json:"total_coffers"`
+	Reason            string    `json:"reason"`
+	WorldTimeAt       time.Time `json:"world_time_at"`
+	CreatedAt         time.Time `json:"created_at"`
+}
+
 type User struct {
 	UserID         int64     `json:"user_id"`
 	Email          string    `json:"email"`
 	HashedPassword string    `json:"hashed_password"`
-	Nickname       string    `json:"nickname"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 

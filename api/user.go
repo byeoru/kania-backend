@@ -50,10 +50,9 @@ func (r *userRouter) signup(ctx *gin.Context) {
 	arg1 := db.CreateUserParams{
 		Email:          req.Email,
 		HashedPassword: hashedPassword,
-		Nickname:       req.Nickname,
 	}
 
-	if err := r.userService.Signup(ctx, &arg1); err != nil {
+	if err := r.userService.Signup(ctx, &arg1, req.Nickname); err != nil {
 		pqErr, ok := err.(*pq.Error)
 		if !ok {
 			ctx.JSON(http.StatusInternalServerError, &types.SignupUserResponse{
@@ -68,7 +67,7 @@ func (r *userRouter) signup(ctx *gin.Context) {
 				ctx.JSON(http.StatusConflict, &types.SignupUserResponse{
 					APIResponse: types.NewAPIResponse(false, "이미 사용 중인 이메일입니다.", pqErr.Detail),
 				})
-			case "users_nickname_key":
+			case "realm_members_nickname_key":
 				ctx.JSON(http.StatusConflict, &types.SignupUserResponse{
 					APIResponse: types.NewAPIResponse(false, "이미 사용 중인 닉네임입니다.", pqErr.Detail),
 				})

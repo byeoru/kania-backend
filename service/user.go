@@ -44,7 +44,7 @@ func (s *UserService) HashPassword(password string) (string, error) {
 	return string(hashedPassword), nil
 }
 
-func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams) error {
+func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams, nickname string) error {
 	return s.store.ExecTx(ctx, func(q *db.Queries) error {
 		userId, err := s.store.CreateUser(ctx, newUser)
 		if err != nil {
@@ -52,10 +52,11 @@ func (s *UserService) Signup(ctx *gin.Context, newUser *db.CreateUserParams) err
 		}
 
 		arg := db.CreateRealmMemberParams{
-			RmID:         userId,
-			RealmID:      sql.NullInt64{Valid: false},
-			Status:       util.None,
-			PrivateMoney: 0,
+			RmID:           userId,
+			RealmID:        sql.NullInt64{Valid: false},
+			Nickname:       nickname,
+			Status:         util.None,
+			PrivateCoffers: 0,
 		}
 
 		err = s.store.CreateRealmMember(ctx, &arg)

@@ -48,11 +48,17 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 		})
 		return
 	}
-
 	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 
-	owner, err := r.userService.FindUser(ctx, authPayload.UserId)
+	me, err := r.realmMemberService.FindRealmMember(ctx, authPayload.UserId)
+
 	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, &types.EstablishARealmResponse{
+				APIResponse: types.NewAPIResponse(false, "유저 정보가 존재하지 않습니다.", err.Error()),
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, &types.EstablishARealmResponse{
 			APIResponse: types.NewAPIResponse(false, "알 수 없는 오류입니다.", err.Error()),
 		})
@@ -64,7 +70,7 @@ func (r *realmRouter) establishARealm(ctx *gin.Context) {
 	realmArg := db.CreateRealmParams{
 		Name:                 req.Name,
 		OwnerRmID:            authPayload.UserId,
-		OwnerNickname:        owner.Nickname,
+		OwnerNickname:        me.Nickname,
 		PoliticalEntity:      util.Tribe,
 		Color:                req.RealmColor,
 		PopulationGrowthRate: util.TribePopulationGrowthRate,

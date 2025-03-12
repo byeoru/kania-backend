@@ -3,6 +3,7 @@ package cron
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 
@@ -48,6 +49,7 @@ func (c *LevyActionCron) ExecuteCronLevyActions(ctx *context.Context, ticker *ti
 		worldTime := util.CalculateCurrentWorldTime(util.StandardRealTime, util.StandardWorldTime)
 		err := c.levyActionService.ExecuteCronLevyActions(ctx, worldTime)
 		if err != nil {
+			fmt.Println(err.Error())
 			arg := db.CreateWorldTimeRecordParams{
 				StopReason:     err.Error(),
 				WorldStoppedAt: worldTime,

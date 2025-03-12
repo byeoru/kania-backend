@@ -45,7 +45,8 @@ LIMIT 1;
 -- name: UpdateRealmPoliticalEntityAndRemoveCapital :exec 
 UPDATE realms
 SET political_entity = sqlc.arg(political_entity)::varchar,
-capitals = array_remove(capitals, sqlc.arg(remove_capital)::int)
+capitals = array_remove(capitals, sqlc.arg(remove_capital)::int),
+population_growth_rate = sqlc.arg(population_growth_rate)::float
 WHERE realm_id = sqlc.arg(realm_id)::bigint;
 
 -- name: RemoveCapital :exec
@@ -88,3 +89,16 @@ FROM realms AS R
 LEFT JOIN realm_sectors_jsonb AS J 
 ON R.realm_id = J.realm_sectors_jsonb_id
 WHERE R.realm_id != $1;
+
+-- name: TransferStateCoffers :one
+WITH deducted AS (
+    UPDATE realms
+    SET state_coffers = FLOOR(state_coffers * (1 - sqlc.arg(reduction_rate)::float))::int
+    WHERE realm_id = sqlc.arg(source_realm_id)::bigint
+    RETURNING FLOOR(state_coffers / sqlc.arg(reduction_rate)::float)::int - state_coffers AS delta, state_coffers AS source_state_coffers
+)
+UPDATE realms
+SET state_coffers = state_coffers + deducted.delta
+FROM deducted
+WHERE realm_id = sqlc.arg(receiver_realm_id)::bigint
+RETURNING deducted.delta, deducted.source_state_coffers, state_coffers AS receiver_state_coffers;

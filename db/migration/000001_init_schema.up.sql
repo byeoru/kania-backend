@@ -2,7 +2,6 @@ CREATE TABLE "users" (
   "user_id" bigserial PRIMARY KEY,
   "email" varchar UNIQUE NOT NULL,
   "hashed_password" varchar NOT NULL,
-  "nickname" varchar UNIQUE NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
@@ -24,8 +23,9 @@ CREATE TABLE "realms" (
 CREATE TABLE "realm_members" (
   "rm_id" bigint PRIMARY KEY,
   "realm_id" bigint,
+  "nickname" varchar UNIQUE NOT NULL,
   "status" varchar NOT NULL,
-  "private_money" int NOT NULL,
+  "private_coffers" int NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
@@ -75,11 +75,13 @@ CREATE TABLE "levies_actions" (
   "levy_action_id" bigserial PRIMARY KEY,
   "levy_id" bigint NOT NULL,
   "realm_id" bigint NOT NULL,
+  "rm_id" bigint NOT NULL,
   "origin_sector" int NOT NULL,
   "target_sector" int NOT NULL,
   "distance" float NOT NULL,
   "action_type" varchar NOT NULL,
   "completed" boolean NOT NULL,
+  "target_realm_id" bigint,
   "started_at" timestamptz NOT NULL,
   "expected_completion_at" timestamptz NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
@@ -103,13 +105,11 @@ CREATE TABLE "conquered_nations" (
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
-CREATE TABLE "battle_outcome" (
+CREATE TABLE "battle_outcomes" (
   "levy_action_id" bigint NOT NULL,
-  "swordman_casualties" int NOT NULL,
-  "archer_casualties" int NOT NULL,
-  "shield_bearer_casualties" int NOT NULL,
-  "lancer_casualties" int NOT NULL,
-  "supply_troop_casualties" int NOT NULL,
+  "realm_id" bigint NOT NULL,
+  "attacker" JSONB NOT NULL,
+  "defender" JSONB NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
@@ -126,6 +126,26 @@ CREATE TABLE "world_time_records" (
   "world_time_record_id" bigserial PRIMARY KEY,
   "stop_reason" varchar NOT NULL,
   "world_stopped_at" timestamptz NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "state_coffers_logs" (
+  "state_coffers_log_id" bigserial PRIMARY KEY,
+  "realm_id" bigint NOT NULL,
+  "change_amount" int NOT NULL,
+  "total_coffers" int NOT NULL,
+  "reason" varchar NOT NULL,
+  "world_time_at" timestamptz NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "private_coffers_logs" (
+  "private_coffers_log_id" bigserial PRIMARY KEY,
+  "rm_id" bigint NOT NULL,
+  "change_amount" int NOT NULL,
+  "total_coffers" int NOT NULL,
+  "reason" varchar NOT NULL,
+  "world_time_at" timestamptz NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
@@ -151,6 +171,8 @@ CREATE INDEX ON "levies" ("encampment");
 
 CREATE INDEX ON "levies" ("stationed");
 
+CREATE INDEX ON "levies_actions" ("rm_id");
+
 CREATE INDEX ON "levies_actions" ("levy_id");
 
 CREATE INDEX ON "levies_actions" ("realm_id");
@@ -161,13 +183,21 @@ CREATE INDEX ON "levies_actions" ("completed");
 
 CREATE INDEX ON "conquered_nations" ("rm_id");
 
-CREATE INDEX ON "battle_outcome" ("levy_action_id");
+CREATE INDEX ON "battle_outcomes" ("levy_action_id");
+
+CREATE INDEX ON "battle_outcomes" ("realm_id");
+
+CREATE INDEX ON "battle_outcomes" ("created_at");
 
 CREATE INDEX ON "levy_surrenders" ("levy_id");
 
 CREATE INDEX ON "levy_surrenders" ("receiving_realm_id");
 
 CREATE INDEX ON "world_time_records" ("created_at");
+
+CREATE INDEX ON "state_coffers_logs" ("created_at");
+
+CREATE INDEX ON "private_coffers_logs" ("created_at");
 
 ALTER TABLE "realm_members" ADD FOREIGN KEY ("rm_id") REFERENCES "users" ("user_id") ON DELETE SET NULL;
 
@@ -191,15 +221,18 @@ ALTER TABLE "levies_actions" ADD FOREIGN KEY ("levy_id") REFERENCES "levies" ("l
 
 ALTER TABLE "levies_actions" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id") ON DELETE SET NULL;
 
+ALTER TABLE "levies_actions" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("rm_id");
+
 ALTER TABLE "conquered_nations" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("rm_id");
 
-ALTER TABLE "battle_outcome" ADD FOREIGN KEY ("levy_action_id") REFERENCES "levies_actions" ("levy_action_id") ON DELETE CASCADE;
+ALTER TABLE "battle_outcomes" ADD FOREIGN KEY ("levy_action_id") REFERENCES "levies_actions" ("levy_action_id") ON DELETE CASCADE;
+
+ALTER TABLE "battle_outcomes" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id");
 
 ALTER TABLE "levy_surrenders" ADD FOREIGN KEY ("levy_id") REFERENCES "levies" ("levy_id") ON DELETE CASCADE;
 
 ALTER TABLE "levy_surrenders" ADD FOREIGN KEY ("receiving_realm_id") REFERENCES "realms" ("realm_id");
 
--- 추가 key
-ALTER TABLE "users" ADD CONSTRAINT "email_key" UNIQUE ("email");
+ALTER TABLE "state_coffers_logs" ADD FOREIGN KEY ("realm_id") REFERENCES "realms" ("realm_id") ON DELETE CASCADE;
 
-ALTER TABLE "users" ADD CONSTRAINT "nickname_key" UNIQUE ("nickname");
+ALTER TABLE "private_coffers_logs" ADD FOREIGN KEY ("rm_id") REFERENCES "realm_members" ("rm_id") ON DELETE CASCADE;

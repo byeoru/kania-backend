@@ -3,11 +3,14 @@ package util
 import "time"
 
 const (
-	TribePopulationGrowthRate   = 0.02
-	KingdomPopulationGrowthRate = 0.03
-	DefaultStateCoffers         = 5000
-	DefaultPrivateMoney         = 0
-	DefaultMorale               = 80
+	RestorationForcesPopulationGrowthRate = 0.01
+	TribePopulationGrowthRate             = 0.05
+	KingdomPopulationGrowthRate           = 0.07
+	DefaultStateCoffers                   = 5000
+	DefaultPrivateMoney                   = 0
+	DefaultMorale                         = 80
+	StateCoffersReductionRate             = 0.5
+	PrivateCoffersReductionRate           = 0.7
 )
 
 type unit struct {
@@ -81,7 +84,7 @@ type AnnexResult = int8
 
 // 합병 결과
 const (
-	Annihilation        AnnexResult = iota // 멸망
+	NationFall          AnnexResult = iota // 멸망
 	Captured                               // 일반 점령
 	CapitalCaptured                        // 수도 함락
 	AllCapitalsCaptured                    // 모든 수도 함락

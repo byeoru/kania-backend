@@ -48,6 +48,40 @@ func (q *Queries) CreateRealmSectorsJsonb(ctx context.Context, arg *CreateRealmS
 	return err
 }
 
+const findBothJsonb = `-- name: FindBothJsonb :many
+SELECT realm_sectors_jsonb_id, cells_jsonb FROM realm_sectors_jsonb
+WHERE realm_sectors_jsonb_id 
+IN ($1::bigint, $2::bigint)
+`
+
+type FindBothJsonbParams struct {
+	RealmID1 int64 `json:"realm_id_1"`
+	RealmID2 int64 `json:"realm_id_2"`
+}
+
+func (q *Queries) FindBothJsonb(ctx context.Context, arg *FindBothJsonbParams) ([]*RealmSectorsJsonb, error) {
+	rows, err := q.db.QueryContext(ctx, findBothJsonb, arg.RealmID1, arg.RealmID2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []*RealmSectorsJsonb{}
+	for rows.Next() {
+		var i RealmSectorsJsonb
+		if err := rows.Scan(&i.RealmSectorsJsonbID, &i.CellsJsonb); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeSectorJsonb = `-- name: RemoveSectorJsonb :exec
 UPDATE realm_sectors_jsonb
 SET cells_jsonb = cells_jsonb - $1::varchar

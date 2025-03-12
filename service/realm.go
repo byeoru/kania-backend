@@ -43,10 +43,10 @@ func (s *RealmService) RegisterRealm(
 		}
 
 		err = q.UpdateRealmMember(ctx, &db.UpdateRealmMemberParams{
-			RmID:         userId,
-			RealmID:      sql.NullInt64{Int64: realm.RealmID, Valid: true},
-			Status:       util.Chief,
-			PrivateMoney: util.DefaultPrivateMoney,
+			RmID:           userId,
+			RealmID:        sql.NullInt64{Int64: realm.RealmID, Valid: true},
+			Status:         util.Chief,
+			PrivateCoffers: util.DefaultPrivateMoney,
 		})
 		if err != nil {
 			return err

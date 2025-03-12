@@ -13,6 +13,9 @@ import (
 type Querier interface {
 	AddCapital(ctx context.Context, arg *AddCapitalParams) error
 	AddRealmSectorJsonb(ctx context.Context, arg *AddRealmSectorJsonbParams) error
+	CreateBattleOutcome(ctx context.Context, arg *CreateBattleOutcomeParams) error
+	CreateBothPrivateCoffersLog(ctx context.Context, arg *CreateBothPrivateCoffersLogParams) error
+	CreateBothStateCoffersLog(ctx context.Context, arg *CreateBothStateCoffersLogParams) error
 	CreateConqueredNations(ctx context.Context, arg *CreateConqueredNationsParams) error
 	CreateLevy(ctx context.Context, arg *CreateLevyParams) (*Levy, error)
 	CreateLevyAction(ctx context.Context, arg *CreateLevyActionParams) (*LeviesAction, error)
@@ -25,11 +28,13 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg *CreateUserParams) (int64, error)
 	CreateWorldTimeRecord(ctx context.Context, arg *CreateWorldTimeRecordParams) error
 	FindAllRealmsWithJsonExcludeMe(ctx context.Context, realmID int64) ([]*FindAllRealmsWithJsonExcludeMeRow, error)
+	FindBothJsonb(ctx context.Context, arg *FindBothJsonbParams) ([]*RealmSectorsJsonb, error)
 	FindEncampmentLevies(ctx context.Context, arg *FindEncampmentLeviesParams) ([]*Levy, error)
 	FindFullRealmMember(ctx context.Context, rmID int64) (*FindFullRealmMemberRow, error)
 	FindIndigenousUnit(ctx context.Context, sectorNumber int32) (*IndigenousUnit, error)
 	FindLatestWorldTimeRecord(ctx context.Context) (*WorldTimeRecord, error)
 	FindLevy(ctx context.Context, levyID int64) (*Levy, error)
+	FindLevyAction(ctx context.Context, levyActionID int64) (*LeviesAction, error)
 	FindLevyActionByLevyId(ctx context.Context, levyID int64) (*LeviesAction, error)
 	FindLevyActionCountByLevyId(ctx context.Context, arg *FindLevyActionCountByLevyIdParams) (int64, error)
 	FindLevyActionsBeforeDate(ctx context.Context, currentWorldTime time.Time) ([]*FindLevyActionsBeforeDateRow, error)
@@ -55,7 +60,8 @@ type Querier interface {
 	RemoveRealm(ctx context.Context, realmID int64) error
 	RemoveSectorJsonb(ctx context.Context, arg *RemoveSectorJsonbParams) error
 	RemoveStationedLevies(ctx context.Context, arg *RemoveStationedLeviesParams) error
-	TransferSectorOwnershipToAttackers(ctx context.Context, arg *TransferSectorOwnershipToAttackersParams) error
+	TransferPrivateCoffers(ctx context.Context, arg *TransferPrivateCoffersParams) (*TransferPrivateCoffersRow, error)
+	TransferStateCoffers(ctx context.Context, arg *TransferStateCoffersParams) (*TransferStateCoffersRow, error)
 	UpdateCensusAt(ctx context.Context, arg *UpdateCensusAtParams) error
 	UpdateCensusPopulation(ctx context.Context, arg *UpdateCensusPopulationParams) error
 	UpdateIndigenousUnits(ctx context.Context, arg *UpdateIndigenousUnitsParams) error

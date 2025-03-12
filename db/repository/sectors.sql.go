@@ -136,30 +136,6 @@ func (q *Queries) GetSectorRealmIdForUpdate(ctx context.Context, cellNumber int3
 	return realm_id, err
 }
 
-const transferSectorOwnershipToAttackers = `-- name: TransferSectorOwnershipToAttackers :exec
-UPDATE sectors
-SET realm_id = $1::bigint
-WHERE cell_number IN (
-    SELECT sectors.cell_number
-    FROM sectors
-    LEFT JOIN levies
-    ON sectors.cell_number = levies.encampment
-    WHERE sectors.realm_id = $2::bigint
-    GROUP BY sectors.cell_number
-    HAVING COUNT(levies.encampment) = 0
-)
-`
-
-type TransferSectorOwnershipToAttackersParams struct {
-	AttackerRealmID int64 `json:"attacker_realm_id"`
-	DefenderRealmID int64 `json:"defender_realm_id"`
-}
-
-func (q *Queries) TransferSectorOwnershipToAttackers(ctx context.Context, arg *TransferSectorOwnershipToAttackersParams) error {
-	_, err := q.db.ExecContext(ctx, transferSectorOwnershipToAttackers, arg.AttackerRealmID, arg.DefenderRealmID)
-	return err
-}
-
 const updateCensusPopulation = `-- name: UpdateCensusPopulation :exec
 UPDATE sectors 
 SET population = CEIL(population * POW(1 + $1::float, $2::float / 365.25))
